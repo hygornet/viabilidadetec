@@ -2,8 +2,7 @@
 
 <style>
   .aegea-footer {
-    /* O layout visual do footer segue o padrao de Aguas do Para em todas as unidades. */
-    background-color: #0027bd !important;
+    background-color: var(--aegea-unit-primary, #0027bd);
     color: #ffffff;
     padding-top: 60px;
     padding-bottom: 40px;
@@ -48,24 +47,20 @@
   }
 
   /* Logo */
-  .aegea-footer-logo-slot {
-    width: 180px;
-    max-width: 100%;
-    min-height: 56px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
+  .aegea-logo-img {
+    max-width: 140px;
+    height: auto;
     margin-bottom: 20px;
   }
 
-  .aegea-footer .aegea-footer-logo-img {
-    display: block;
-    width: auto;
-    height: auto;
-    max-width: 180px;
-    max-height: 56px;
-    object-fit: contain;
-    object-position: left top;
+  /* Mantem a logo CORSAN dentro da mesma area visual usada pela logo do Para. */
+  html[data-aegea-unidade="corsan"] .aegea-footer #footerLogo {
+    width: 180px !important;
+    height: 56px !important;
+    max-width: 180px !important;
+    max-height: 56px !important;
+    object-fit: contain !important;
+    object-position: left center !important;
   }
 
   /* Linha Divisória */
@@ -196,9 +191,7 @@
     <div class="row">
       
       <div class="col-lg-2 col-md-12 mb-4">
-        <div class="aegea-footer-logo-slot">
-          <img id="footerLogo" src="{{mid_image}}" title="{{title}}" alt="{{alt}}" class="aegea-footer-logo-img" loading="lazy" style="opacity: 0; transition: opacity 0.3s ease-in-out;">
-        </div>
+        <img id="footerLogo" src="{{mid_image}}" title="{{title}}" alt="{{alt}}" class="aegea-logo-img" loading="lazy" style="opacity: 0; transition: opacity 0.3s ease-in-out;">
       </div>
 
       <div class="col-lg-2 col-md-6 mb-4">
@@ -440,6 +433,7 @@ document.addEventListener("DOMContentLoaded", function () {
           contato: "https://corsan.com.br/canais-de-relacionamento/",
           logo: "/corsan_footer.png",
           nome: "CORSAN",
+          primary: "#0027bd",
           fb: "https://pt-br.facebook.com/corsan.oficial/",
           yt: "https://www.youtube.com/@OficialCorsan",
           in: "https://www.linkedin.com/company/corsan/?viewAsMember=true",
@@ -448,28 +442,33 @@ document.addEventListener("DOMContentLoaded", function () {
         aguasdopara: {
           contato: "https://www.aguasdopara.com.br/contato/",
           logo: "/para_footer.png",
-          nome: "Águas do Pará"
+          nome: "Águas do Pará",
+          primary: "#0027bd"
         },
         guariroba: {
           contato: "https://www.aguasguariroba.com.br/contato/",
           logo: "/logo_guariroba_branco.png",
-          nome: "Águas de Guariroba"
+          nome: "Águas de Guariroba",
+          primary: "#0027bd"
         },
         manaus: {
           contato: "https://www.aguasdemanaus.com.br/contato/",
           logo: "/logo_manaus_branco.png",
-          nome: "Águas de Manaus"
+          nome: "Águas de Manaus",
+          primary: "#0027bd"
         },
         prolagos: {
           contato: "https://www.prolagos.com.br/contato/",
           logo: "/logo_prolagos_branco.png",
-          nome: "Prolagos"
+          nome: "Prolagos",
+          primary: "#0027bd"
         }
       };
 
       var footerLogo = document.getElementById("footerLogo");
       var footerContatoLink = document.getElementById("footerContatoLink");
       var footerTitleText = document.getElementById("footerTitleText");
+      var footer = document.querySelector(".aegea-footer");
       var btnFb = document.querySelector('.social-icons a[aria-label="Facebook"]');
       var btnYt = document.querySelector('.social-icons a[aria-label="Youtube"]');
       var btnIn = document.querySelector('.social-icons a[aria-label="LinkedIn"]');
@@ -489,6 +488,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (footerContatoLink) footerContatoLink.href = data.contato;
         if (footerTitleText) footerTitleText.textContent = data.nome;
+        if (footer) footer.style.backgroundColor = data.primary;
         if (btnFb) btnFb.href = data.fb || defaultFb;
         if (btnYt) btnYt.href = data.yt || defaultYt;
         if (btnIn) btnIn.href = data.in || defaultIn;
