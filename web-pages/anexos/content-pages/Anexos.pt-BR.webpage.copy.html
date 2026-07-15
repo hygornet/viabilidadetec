@@ -1,0 +1,3797 @@
+{% assign docUrlId = request.params["id"] | default: "" %}
+
+{% assign solicitacaoId = "" %}
+{% assign idSolicitacoes = "" %}
+{% assign nomeUnidade = "" %}
+{% assign faseSolicitacao = "" %}
+{% assign nomeComponente = "" %}
+{% assign nomeDocumento = "" %}
+{% assign descricaoDocumento = "" %}
+
+{% if docUrlId != "" %}
+
+  {% fetchxml docAtual %}
+  <fetch top="1">
+    <entity name="cloud_docs_solicitacao">
+
+      <attribute name="cloud_docs_solicitacaoid" />
+      <attribute name="cloud_fk_solicitacoes" />
+      <attribute name="cloud_fk_componentes_projeto" />
+      <attribute name="cloud_status_doc" />
+      <attribute name="cloud_fk_docs_relacao" />
+
+      <filter>
+        <condition
+          attribute="cloud_docs_solicitacaoid"
+          operator="eq"
+          value="{{ docUrlId }}"
+        />
+
+        <condition
+          attribute="createdon"
+          operator="le"
+          value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}'
+        />
+      </filter>
+
+      <!-- SOLICITAÇÃO -->
+      <link-entity
+        name="cloud_solicitacoes"
+        from="cloud_solicitacoesid"
+        to="cloud_fk_solicitacoes"
+        alias="sol"
+        link-type="inner">
+
+        <attribute name="cloud_solicitacoesid" />
+        <attribute name="cloud_id_solicitacoes" />
+        <attribute name="cloud_fase" />
+        <attribute name="cloud_fk_municipios" />
+
+        <!-- MUNICÍPIO -->
+        <link-entity
+          name="cloud_municipios"
+          from="cloud_municipiosid"
+          to="cloud_fk_municipios"
+          alias="municipio"
+          link-type="outer">
+
+          <!-- REGIONAL -->
+          <link-entity
+            name="cloud_regionais"
+            from="cloud_regionaisid"
+            to="cloud_fk_regionais"
+            alias="regional"
+            link-type="outer">
+
+            <!-- UNIDADE -->
+            <link-entity
+              name="cloud_unidades"
+              from="cloud_unidadesid"
+              to="cloud_fk_unidades"
+              alias="unidade"
+              link-type="outer">
+
+              <attribute name="cloud_nome_unidade" />
+
+            </link-entity>
+          </link-entity>
+        </link-entity>
+      </link-entity>
+
+      <!-- COMPONENTE -->
+      <link-entity
+        name="cloud_componentes_projeto"
+        from="cloud_componentes_projetoid"
+        to="cloud_fk_componentes_projeto"
+        alias="comp"
+        link-type="outer">
+
+        <attribute name="cloud_nome_componente" />
+
+      </link-entity>
+
+      <!-- RELAÇÃO DO DOCUMENTO -->
+      <link-entity
+        name="cloud_docs_relacao"
+        from="cloud_docs_relacaoid"
+        to="cloud_fk_docs_relacao"
+        alias="rel"
+        link-type="outer">
+
+        <link-entity
+          name="cloud_docs_catalogo"
+          from="cloud_docs_catalogoid"
+          to="cloud_fk_docs_catalogo"
+          alias="cat"
+          link-type="outer">
+
+          <attribute name="cloud_nome_documento" />
+          <attribute name="cloud_descricao_documento" />
+
+        </link-entity>
+      </link-entity>
+
+    </entity>
+  </fetch>
+  {% endfetchxml %}
+
+  {% assign registroDoc = docAtual.results.entities | first %}
+
+  {% if registroDoc %}
+
+    {% assign solicitacaoId = registroDoc["sol.cloud_solicitacoesid"] | default: "" %}
+
+    {% assign idSolicitacoes = registroDoc["sol.cloud_id_solicitacoes"] | default: "" %}
+
+    {% assign nomeUnidade = registroDoc["unidade.cloud_nome_unidade"] | default: "" | strip %}
+
+    {% assign nomeComponente = registroDoc["comp.cloud_nome_componente"]  | default: ""  | strip %}
+
+    {% assign nomeDocumento = registroDoc["cat.cloud_nome_documento"] | default: "" | strip  %}
+
+    {% assign descricaoDocumento = registroDoc["cat.cloud_descricao_documento"]  | default: "Sem descrição disponível." %}
+
+    {% assign faseSolicitacao = "" %}
+
+    {% if registroDoc["sol.cloud_fase"] %} {% assign faseSolicitacao =  registroDoc["sol.cloud_fase"].label | default: "" | upcase | strip  %}
+    {% endif %}
+
+    {% assign statusDocValor = registroDoc.cloud_status_doc.value | default: "" %}
+
+    {% assign statusDocLabel = registroDoc.cloud_status_doc.label | default: "Sem status" %}
+
+    {% assign statusDocLabelNormalizado = statusDocLabel | default: "" | upcase | strip %}
+
+  {% endif %}
+
+{% endif %}
+
+{% fetchxml historicoDocs %}
+<fetch>
+  <entity name="cloud_historico_docs">
+    <attribute name="cloud_historico_docsid" />
+    <attribute name="cloud_tipo_analise" />
+    <attribute name="cloud_status_doc" />
+    <attribute name="createdon" />
+    <attribute name="cloud_data_conclusao_analise" />
+    <attribute name="cloud_sla_conclusao_analise" />
+    <attribute name="cloud_motivos_comentarios" />
+    <attribute name="cloud_fk_docs_solicitacao" />
+
+    <filter>
+      <condition attribute="cloud_fk_docs_solicitacao" operator="eq" value="{{ docUrlId }}" />
+
+      <condition attribute="createdon" operator="le" value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}' />
+    </filter>
+  </entity>
+</fetch>
+{% endfetchxml %} 
+{% fetchxml ultimoComentarioDocumento %}
+<fetch top="1">
+  <entity name="cloud_historico_docs">
+    <attribute name="cloud_motivos_comentarios" />
+    <attribute name="createdon" />
+
+    <filter type="and">
+      <condition
+        attribute="cloud_fk_docs_solicitacao"
+        operator="eq"
+        value="{{ docUrlId }}"
+      />
+
+      <condition
+        attribute="cloud_motivos_comentarios"
+        operator="not-null"
+      />
+
+      <condition
+        attribute="createdon"
+        operator="le"
+        value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}'
+      />
+    </filter>
+
+    <order attribute="createdon" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign registroUltimoComentario = ultimoComentarioDocumento.results.entities | first %}
+
+{% assign motivoComentarioDocumento =  registroUltimoComentario.cloud_motivos_comentarios | default: "" | strip %}
+
+
+{% fetchxml anexosAnnotation %}
+<fetch>
+  <entity name="annotation">
+    <attribute name="annotationid" />
+    <attribute name="filename" />
+    <attribute name="mimetype" />
+    <attribute name="filesize" />
+    <attribute name="createdon" />
+    <attribute name="subject" />
+    <filter>
+      <condition attribute="objectid" operator="eq" value="{{ docUrlId }}" />
+      <condition attribute="isdocument" operator="eq" value="1" />
+      <condition attribute="createdon" operator="le" value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}' />
+    </filter>
+    <order attribute="createdon" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+ {% assign qtdAnexos = anexosAnnotation.results.entities.size | default: 0 %}
+  {% assign bloquearAnexos = false %} 
+  {% if statusDocValor == "586450002" or statusDocValor == "586450003" or statusDocValor == "586450004" or statusDocValor == "586450006" or statusDocValor == "586450008" %}
+   {% assign bloquearAnexos = true %}
+    {% endif %}
+
+<style>
+
+
+    /* ===============================
+       BOTÃO PRIMÁRIO – PADRÃO FLUENT
+       =============================== */
+    .btn-cloud {
+      background-color: var(--brand-color) !important;
+      color: #ffffff !important;
+      width: auto !important;
+      min-width: 180px !important;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 32px !important;
+      font-size: 16px !important;
+      font-weight: 600 !important;
+      border-radius: 8px !important;
+      border: none !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
+      cursor: pointer !important;
+      transition: all 0.3s ease !important;
+      box-shadow: none !important;
+      text-decoration: none !important;
+    }
+
+    /* Hover */
+    .btn-cloud:hover {
+      background-color: var(--secondary-color) !important;
+      transform: translateY(-2px) !important;
+      box-shadow: 0 4px 12px rgba(23, 227, 203, 0.4) !important;
+    }
+
+    /* Active */
+    .btn-cloud:active {
+      transform: translateY(0) !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* Focus (acessibilidade) */
+    .btn-cloud:focus {
+      outline: none !important;
+      box-shadow: 0 0 0 3px rgba(23, 227, 203, 0.35) !important;
+    }
+
+    /* ===============================
+       BOTÃO SECUNDÁRIO – OUTLINE
+       =============================== */
+    .btn-cloud-outline {
+      background-color: #ffffff !important;
+      color: var(--brand-color) !important;
+      border: 2px solid var(--brand-color) !important;
+      border-radius: 8px !important;
+    }
+
+    /* Hover outline */
+    .btn-cloud-outline:hover {
+      background-color: var(--secondary-color) !important;
+      color: #ffffff !important;
+      border-color: var(--secondary-color) !important;
+    }
+
+    /* Active outline */
+    .btn-cloud-outline:active {
+      transform: translateY(0) !important;
+    }
+
+    /* Focus outline */
+    .btn-cloud-outline:focus {
+      outline: none !important;
+      box-shadow: 0 0 0 3px rgba(23, 227, 203, 0.35) !important;
+    }
+    /* ======================================
+       REMOVE SUBLINHADO DOS BOTÕES <a>
+       ====================================== */
+    .btn-cloud,
+    .btn-cloud:hover,
+    .btn-cloud:focus,
+    .btn-cloud:active,
+    .btn-cloud-outline,
+    .btn-cloud-outline:hover,
+    .btn-cloud-outline:focus,
+    .btn-cloud-outline:active {
+      text-decoration: none !important;
+    }
+      .custom-top-actions {
+        width: 100%;
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 18px;
+      }
+
+      .btn-voltar-custom {
+        background: #ffffff;
+        color: #0027bd;
+        border: 2px solid #0027bd;
+        border-radius: 10px;
+        padding: 10px 18px;
+        font-weight: 700;
+        letter-spacing: .3px;
+        cursor: pointer;
+        transition: .2s ease;
+        min-width: 130px;
+      }
+
+      .btn-voltar-custom:hover {
+        background: #0027bd;
+        color: #ffffff;
+        transform: translateY(-1px);
+      }
+
+      .custom-form-actions {
+        margin-top: 18px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+
+      .btn-salvar-custom {
+        background: #0027bd;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 22px;
+        font-weight: 700;
+        letter-spacing: .3px;
+        cursor: pointer;
+        transition: .2s ease;
+        min-width: 140px;
+      }
+
+      .btn-salvar-custom:hover {
+        opacity: .92;
+        transform: translateY(-1px);
+      }
+
+      .btn-salvar-custom:disabled {
+        opacity: .65;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* =====================================================
+   VARIÁVEIS VISUAIS — PADRÃO DA PÁGINA PAI
+   ===================================================== */
+
+:root {
+  --brand-color: #0027bd;
+  --secondary-color: #17e3cb;
+  --text-dark: #1f2937;
+}
+
+/* =====================================================
+   MODAIS DA PÁGINA FILHA
+   Mantém o HTML cloud-modal-* existente,
+   mas aplica o design da página pai.
+   ===================================================== */
+
+.cloud-modal-overlay {
+  position: fixed !important;
+
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+
+.cloud-modal-overlay {
+  position: fixed !important;
+
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+
+  margin: 0 !important;
+  padding: 20px !important;
+  border: 0 !important;
+
+  box-sizing: border-box !important;
+
+  background: rgba(0, 0, 0, 0.55) !important;
+
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+
+  z-index: 2147483647 !important;
+
+  /* Oculta a barra sem impedir a rolagem */
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.cloud-modal-overlay::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+  margin: 0 !important;
+  border: 0 !important;
+
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+
+  padding: 20px !important;
+  box-sizing: border-box !important;
+
+  background-color: rgba(0, 0, 0, 0.55) !important;
+
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+
+  transform: none !important;
+  translate: none !important;
+
+  z-index: 2147483647 !important;
+}
+html.cloud-modal-aberto,
+body.cloud-modal-aberto {
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html.cloud-modal-aberto::-webkit-scrollbar,
+body.cloud-modal-aberto::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+/* Caixa principal */
+.cloud-modal {
+  position: relative !important;
+
+  width: 100% !important;
+  max-width: 520px !important;
+
+  padding: 32px !important;
+  box-sizing: border-box !important;
+
+  background: #ffffff !important;
+
+  border: none !important;
+  border-radius: 16px !important;
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, .30) !important;
+
+  overflow: visible !important;
+
+  font-family: Inter, Arial, sans-serif !important;
+
+  animation: cloudModalEntrada .18s ease-out;
+}
+
+/* Título do modal */
+.cloud-modal-header {
+  margin: 0 0 16px 0 !important;
+  padding: 0 !important;
+
+  background: transparent !important;
+  background-image: none !important;
+
+  color: #0027bd !important;
+
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+
+  border: none !important;
+}
+
+/* Conteúdo */
+.cloud-modal-body {
+  margin: 0 !important;
+  padding: 0 !important;
+
+  color: #1f2937 !important;
+
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 1.6 !important;
+}
+
+/* Rodapé com botões */
+.cloud-modal-footer {
+  margin: 32px 0 0 0 !important;
+  padding: 0 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+
+  gap: 12px !important;
+
+  background: transparent !important;
+  border: none !important;
+}
+
+/* =====================================================
+   BOTÃO OK ANTIGO COM O MESMO PADRÃO btn-cloud
+   ===================================================== */
+
+.cloud-btn-ok {
+  width: auto !important;
+  min-width: 180px !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  padding: 14px 32px !important;
+
+  background-color: #0027bd !important;
+  color: #ffffff !important;
+
+  border: none !important;
+  border-radius: 8px !important;
+
+  font-family: Inter, Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+
+  text-transform: uppercase !important;
+  letter-spacing: .5px !important;
+
+  cursor: pointer !important;
+
+  box-shadow: none !important;
+
+  transition:
+    background-color .3s ease,
+    transform .3s ease,
+    box-shadow .3s ease !important;
+}
+
+.cloud-btn-ok:hover {
+  background-color: #17e3cb !important;
+  color: #ffffff !important;
+
+  transform: translateY(-2px) !important;
+
+  box-shadow:
+    0 4px 12px rgba(23, 227, 203, .40) !important;
+}
+
+.cloud-btn-ok:active {
+  transform: translateY(0) !important;
+
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, .20) !important;
+}
+
+.cloud-btn-ok:focus {
+  outline: none !important;
+
+  box-shadow:
+    0 0 0 3px rgba(23, 227, 203, .35) !important;
+}
+
+.cloud-btn-ok:disabled {
+  opacity: .55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* =====================================================
+   MODAIS DE SUCESSO — BOTÃO CENTRALIZADO
+   ===================================================== */
+
+#modalSalvarArquivos .cloud-modal-footer,
+#modalAnexoExcluidoSucesso .cloud-modal-footer,
+#modalUploadFlowSucesso .cloud-modal-footer {
+  justify-content: center !important;
+  margin-top: 24px !important;
+}
+
+/* =====================================================
+   MODAL DE EXCLUSÃO — BOTÕES À DIREITA
+   ===================================================== */
+
+#modalExcluirAnexo .cloud-modal-footer {
+  justify-content: flex-end !important;
+  margin-top: 32px !important;
+}
+
+/* Destaque no nome do arquivo */
+#modalExcluirAnexo #nomeArquivoExcluir {
+  color: #0027bd !important;
+  font-weight: 700 !important;
+  overflow-wrap: anywhere;
+}
+
+/* Entrada suave */
+@keyframes cloudModalEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* =====================================================
+   RESPONSIVIDADE DOS MODAIS
+   ===================================================== */
+
+@media (max-width: 768px) {
+  .cloud-modal-overlay {
+    padding: 12px !important;
+  }
+
+  .cloud-modal {
+    width: 92% !important;
+    max-width: 92% !important;
+
+    margin: 0 auto !important;
+    padding: 24px 18px !important;
+  }
+
+  .cloud-modal-header {
+    text-align: center !important;
+    font-size: 20px !important;
+  }
+
+  .cloud-modal-body {
+    text-align: center !important;
+    font-size: 15px !important;
+  }
+
+  /* Confirmação: botões ocupam toda a largura */
+  #modalExcluirAnexo .cloud-modal-footer {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+  }
+
+  #modalExcluirAnexo .cloud-modal-footer button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Modais de sucesso */
+  #modalSalvarArquivos .cloud-modal-footer,
+  #modalAnexoExcluidoSucesso .cloud-modal-footer,
+  #modalUploadFlowSucesso .cloud-modal-footer {
+    align-items: stretch !important;
+  }
+
+  #modalSalvarArquivos .cloud-modal-footer button,
+  #modalAnexoExcluidoSucesso .cloud-modal-footer button,
+  #modalUploadFlowSucesso .cloud-modal-footer button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+    #custom-modern-form,
+    #custom-modern-form > div,
+    #custom-modern-form .entity-form,
+    #custom-modern-form .form-horizontal,
+    #custom-modern-form .tab,
+    #custom-modern-form .tab-column,
+    #custom-modern-form .sectionBlockLayout,
+    #custom-modern-form fieldset {
+      border-radius: 24px !important;
+      overflow: hidden !important;
+    }
+
+    #custom-modern-form {
+      background: rgba(255, 255, 255, 0.9) !important;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    #custom-modern-preform,
+    #custom-modern-preform > div,
+    #custom-modern-preform .entity-form,
+    #custom-modern-preform .form-horizontal,
+    #custom-modern-preform .tab,
+    #custom-modern-preform .tab-column,
+    #custom-modern-preform .sectionBlockLayout,
+    #custom-modern-preform fieldset {
+      border-radius: 24px !important;
+      overflow: hidden !important;
+    }
+
+    #custom-modern-preform {
+      background: rgba(255, 255, 255, 0.6) !important;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      margin-top: 24px !important;
+    }
+
+    .titulo-anexo-topo{
+      width:100%;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:16px;
+      margin:0 0 16px 0;
+      overflow:visible !important;
+      position:relative;
+      z-index:20;
+    }
+
+    .titulo-anexo-textos{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      overflow:visible !important;
+    }
+
+    .titulo-anexo-linha1{
+      margin:0 0 6px 0 !important;
+      font-size:32px;
+      font-weight:800;
+      line-height:1.2;
+    }
+
+    .titulo-anexo-linha2{
+      margin:0 !important;
+      font-size:24px;
+      font-weight:600;
+      line-height:1.2;
+    }
+
+    .tooltip-ajuda-wrap{
+      position:relative;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-end;
+      min-width:72px;
+      overflow:visible !important;
+      z-index:999999 !important;
+    }
+
+    .btn-ajuda-documento{
+      width:64px;
+      height:64px;
+      min-width:64px;
+      border-radius:50%;
+      border:2px solid #0b5ed7;
+      background:transparent;
+      color:#0b5ed7;
+      font-size:30px;
+      font-weight:800;
+      line-height:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      box-shadow:none;
+      margin-top:2px;
+      transition:
+        transform 0.6s ease,
+        background-color 0.35s ease,
+        border-color 0.35s ease,
+        color 0.35s ease,
+        box-shadow 0.35s ease;
+      transform-style:preserve-3d;
+      position:relative;
+      z-index:2;
+    }
+
+    .btn-ajuda-documento:hover{
+      background:#17e3cb;
+      border-color:#17e3cb;
+      color:#003b49;
+      transform:rotateY(180deg) scale(1.08);
+      box-shadow:0 10px 24px rgba(23, 227, 203, 0.35);
+    }
+
+    .tooltip-ajuda-box{
+      position:absolute;
+      top:calc(100% + 14px);
+      right:0;
+      min-width:320px;
+      max-width:460px;
+      padding:16px 18px;
+      border-radius:16px;
+      background:rgba(0, 0, 0, 0.8);
+      color:#17e3cb;
+      text-align:left;
+      box-shadow:0 12px 30px rgba(0,0,0,0.28);
+      opacity:0;
+      visibility:hidden;
+      transform:translateY(8px);
+      transition:
+        opacity 0.25s ease,
+        visibility 0.25s ease,
+        transform 0.25s ease;
+      z-index:999999 !important;
+      pointer-events:none;
+      overflow:visible !important;
+    }
+
+    .tooltip-ajuda-box::before{
+      content:"";
+      position:absolute;
+      top:-7px;
+      right:22px;
+      width:14px;
+      height:14px;
+      background:rgba(0, 0, 0, 0.8);
+      transform:rotate(45deg);
+    }
+
+    .tooltip-ajuda-titulo{
+      font-size:16px;
+      font-weight:800;
+      color:#17e3cb;
+      margin:0 0 10px 0;
+    }
+
+    .tooltip-ajuda-texto{
+      font-size:14px;
+      line-height:1.55;
+      font-weight:500;
+      color:#17e3cb;
+      white-space:normal;
+      word-break:break-word;
+    }
+
+    .tooltip-ajuda-wrap:hover .tooltip-ajuda-box,
+    .tooltip-ajuda-wrap:focus-within .tooltip-ajuda-box{
+      opacity:1;
+      visibility:visible;
+      transform:translateY(0);
+    }
+    .badge-status-doc {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    vertical-align: middle;
+    background: #eef2ff;
+    color: #0027bd;
+    border: 1px solid rgba(0, 39, 189, .18);
+  }
+  /* ======================================================
+     LISTA DE ANEXOS - MESMO PADRÃO upload-doc-*
+     ====================================================== */
+
+  .card-anexos-existentes {
+    width: 100%;
+    margin: 18px 0 24px 0;
+    padding: 18px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: none;
+    box-sizing: border-box;
+  }
+
+  .card-anexos-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .card-anexos-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: #0027bd;
+  }
+
+  .card-anexos-count {
+    background: #17e3cb;
+    color: #003b49;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 5px 10px;
+    border-radius: 999px;
+  }
+
+  /* A lista vira grid igual upload-doc-grid */
+  .lista-anexos-existentes {
+    display: grid;
+    gap: 14px;
+  }
+
+  /* Item igual upload-doc-item */
+  .item-anexo-existente {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .05);
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+  }
+
+  .item-anexo-existente:hover {
+    transform: translateY(-3px);
+    border-color: #17e3cb;
+    background: #fbfffe;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, .10);
+  }
+
+  .item-anexo-download {
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  .item-anexo-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .item-anexo-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    color: #0027bd;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .item-anexo-textos {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .item-anexo-nome {
+    font-weight: 800;
+    color: #0027bd;
+    text-decoration: none !important;
+    font-size: 14px;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+
+  .item-anexo-download:hover .item-anexo-nome {
+    color: #17a99b;
+    text-decoration: underline !important;
+  }
+
+  .item-anexo-meta {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .item-anexo-tipo {
+    display: inline-flex;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .item-anexo-acoes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Botões de ação no padrão do lixo da outra lista */
+  .btn-download-anexo,
+  .btn-excluir-anexo {
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform .22s ease, background .22s ease;
+    position: relative;
+  }
+
+  .btn-download-anexo {
+    background: #eff6ff;
+    color: #0027bd;
+  }
+
+  .btn-download-anexo:hover {
+    background: #dbeafe;
+    transform: scale(1.08);
+  }
+
+  .btn-excluir-anexo {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  .btn-excluir-anexo:hover {
+    background: #fee2e2;
+    transform: scale(1.08);
+  }
+
+  /* Tooltip igual padrão discreto */
+  .btn-download-anexo::after,
+  .btn-excluir-anexo::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.82);
+    color: #17e3cb;
+    padding: 5px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: .2s ease;
+    z-index: 9999;
+  }
+
+  .btn-download-anexo:hover::after,
+  .btn-excluir-anexo:hover::after {
+    opacity: 1;
+  }
+
+  /* Estado carregando igual upload-doc-item-carregando */
+  .item-anexo-carregando {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .05);
+    opacity: .95;
+  }
+
+  .item-anexo-carregando .spinner-upload {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    color: #0027bd;
+    font-size: 0;
+  }
+
+  .item-anexo-carregando .spinner-upload::before {
+    content: "";
+    width: 22px;
+    height: 22px;
+    display: inline-block;
+    border: 3px solid #dbeafe;
+    border-top-color: #17e3cb;
+    border-radius: 50%;
+    animation: uploadDocSpin .8s linear infinite;
+  }
+
+  .item-anexo-carregando .texto-upload {
+    font-weight: 800;
+    color: #0027bd;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+  }
+
+  .item-anexo-carregando .subtexto-upload {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    line-height: 1.35;
+  }
+
+  @keyframes uploadDocSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Estado excluindo igual upload-doc-item.excluindo */
+  .item-anexo-existente.excluindo {
+    opacity: .72;
+    pointer-events: none;
+    background: #f8fafc !important;
+    border-color: #93c5fd !important;
+  }
+
+  .item-anexo-status-excluindo {
+  width: 100%;
+  min-height: 46px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  color: #0027bd;
+
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+  .item-anexo-status-excluindo::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    border: 3px solid #dbeafe;
+    border-top-color: #17e3cb;
+    border-radius: 50%;
+    animation: uploadDocSpin .8s linear infinite;
+  }
+
+  /* Estado vazio igual upload-doc-vazio */
+  .historico-vazio,
+  .anexos-vazio {
+    padding: 16px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #64748b;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  /* Mobile igual padrão da outra página */
+  @media (max-width: 768px) {
+    .card-anexos-existentes {
+      padding: 18px;
+    }
+
+    .card-anexos-header {
+      flex-direction: column;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .item-anexo-existente,
+    .item-anexo-carregando {
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .item-anexo-info {
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .item-anexo-textos,
+    .item-anexo-nome,
+    .item-anexo-meta {
+      width: 100%;
+      text-align: center;
+    }
+
+    .item-anexo-acoes {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .btn-download-anexo,
+    .btn-excluir-anexo {
+      width: 44px;
+      height: 44px;
+    }
+  }
+
+  .btn-download-anexo,
+  .btn-excluir-anexo {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .btn-download-anexo {
+    border: 1px solid rgba(23, 227, 203, .55);
+    background: rgba(23, 227, 203, .12);
+    color: #003b49;
+  }
+
+  .btn-download-anexo:hover {
+    background: #17e3cb;
+    color: #003b49;
+  }
+
+  .btn-download-anexo::after,
+  .btn-excluir-anexo::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.82);
+    color: #17e3cb;
+    padding: 5px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: .2s ease;
+    z-index: 9999;
+  }
+
+  .btn-download-anexo:hover::after,
+  .btn-excluir-anexo:hover::after {
+    opacity: 1;
+  }
+
+  #MessagePanel,
+  #MessagePanel.message,
+  #MessagePanel.alert,
+  #MessagePanel.alert-success,
+  #MessagePanel.alert-info,
+  div[id="MessagePanel"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    border: none !important;
+  }
+
+  /* =========================================
+   MENSAGEM DE MOTIVO / COMENTÁRIO
+   ========================================= */
+.alerta-motivo-comentario {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  box-sizing: border-box;
+  margin: 18px 0;
+  padding: 18px 20px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-left: 6px solid #f97316;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.08);
+}
+
+.alerta-motivo-comentario-icone {
+  flex-shrink: 0;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.alerta-motivo-comentario-conteudo {
+  flex: 1;
+  min-width: 0;
+}
+
+.alerta-motivo-comentario-titulo {
+  margin: 0 0 7px 0;
+  color: #9a3412;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.alerta-motivo-comentario-texto {
+  margin: 0;
+  color: #7c2d12;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .alerta-motivo-comentario {
+    padding: 16px;
+  }
+}
+
+/* =====================================================
+   ESTADO DE LIMPEZA DE TODOS OS ANEXOS
+   ===================================================== */
+
+.lista-anexos-existentes.limpando-anexos {
+  pointer-events: none;
+}
+
+.lista-anexos-existentes.limpando-anexos
+.item-anexo-existente {
+  opacity: .68;
+  background: #f8fafc !important;
+  border-color: #93c5fd !important;
+  transform: none !important;
+}
+
+.estado-limpando-anexos {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  padding: 18px;
+  box-sizing: border-box;
+
+  color: #0027bd;
+
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.estado-limpando-anexos::before {
+  content: "";
+
+  width: 20px;
+  height: 20px;
+
+  border: 3px solid #dbeafe;
+  border-top-color: #17e3cb;
+  border-radius: 50%;
+
+  animation: uploadDocSpin .8s linear infinite;
+}
+
+.acoes-lista-anexos {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .acoes-lista-anexos {
+    justify-content: center;
+  }
+
+  .acoes-lista-anexos .btn-cloud {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+</style>
+
+<div class="row sectionBlockLayout text-start" style="display: flex; flex-wrap: wrap; margin: 0px; min-height: auto; padding: 8px;">
+  <div class="container" style="display: flex; flex-wrap: wrap;">
+    <div
+      style="
+  width:100%;
+  margin:24px 0 20px 0;
+  display:flex;
+  justify-content:flex-start;
+  align-items:center;
+"
+    ></div>
+    <div id="custom-modern-preform" class="container" style="display: flex; flex-wrap: wrap;">
+      <div class="col-lg-12 columnBlockLayout" style="flex-grow: 1; display: flex; flex-direction: column; min-width: 250px; padding: 16px; margin: 30px 0px;">
+        <div class="titulo-anexo-textos">
+          <h2 class="page-title titulo-anexo-linha1">
+            📂 {{ nomeDocumento }}
+            <span class="badge-status-doc badge-status-{{ statusDocValor }}"> STATUS: {{ statusDocLabel }} </span>
+          </h2>
+        </div>
+
+        {% if motivoComentarioDocumento != "" %}
+  <div class="alerta-motivo-comentario" role="alert">
+    <div class="alerta-motivo-comentario-icone">
+      ⚠️
+    </div>
+
+    <div class="alerta-motivo-comentario-conteudo">
+      <h4 class="alerta-motivo-comentario-titulo">
+        Comentário
+      </h4>
+
+      <p class="alerta-motivo-comentario-texto">
+        {{ motivoComentarioDocumento | escape }}
+      </p>
+    </div>
+  </div>
+{% endif %}
+
+
+        {% if statusDocValor != "586450000" %}
+         {% if anexosAnnotation.results.entities.size > 0 %}
+        <div class="card-anexos-existentes">
+          <div class="card-anexos-header">
+            <h4 class="card-anexos-title">📎 Anexos já enviados</h4>
+            <span class="card-anexos-count"> {{ anexosAnnotation.results.entities.size }} arquivo(s) </span>
+          </div>
+
+          <div class="lista-anexos-existentes">
+            {% for anexo in anexosAnnotation.results.entities %} {% assign nomeArquivo = anexo.filename | default: "Arquivo sem nome" %} {% assign tipoArquivo = anexo.mimetype | default: "arquivo" %} {% assign extensao = nomeArquivo | split: "." | last | upcase %}
+
+            <div class="item-anexo-existente" data-annotation-id="{{ anexo.annotationid }}">
+              <div class="item-anexo-info">
+                <div class="item-anexo-icon">📄</div>
+
+                <div class="item-anexo-textos">
+                  <a class="item-anexo-nome item-anexo-link" href="/_entity/annotation/{{ anexo.annotationid }}/fileattachment" download="{{ nomeArquivo | escape }}" title="{{ nomeArquivo }}"> {{ nomeArquivo }} </a>
+                </div>
+              </div>
+
+              
+            </div>
+
+            {% endfor %}
+          </div>
+
+          {% if qtdAnexos > 0 and bloquearAnexos == false and statusDocLabelNormalizado != "A CORRIGIR" %}
+            <div class="acoes-lista-anexos">
+              <button
+                type="button"
+                id="btnLimparAnexos"
+                class="btn-cloud btn-cloud-outline">
+                LIMPAR ANEXOS
+              </button>
+            </div>
+          {% endif %}
+
+        </div>
+        {% endif %} {% endif %} {% if bloquearAnexos %}
+        <div class="card-anexos-existentes">
+          <div class="card-anexos-header">
+            <h4 class="card-anexos-title">Envio de anexos bloqueado</h4>
+          </div>
+          <p style="margin:0;color:#374151;font-weight:600;">Este documento está com status <strong>{{ statusDocLabel }}</strong>. Não é permitido enviar novos anexos neste momento.</p>
+        </div>
+
+        {% elsif qtdAnexos < 10 %}
+
+          {% assign vagasRestantes = 10 | minus: qtdAnexos %}
+
+          <div
+              id="uploadAnexosFlow"
+              class="upload-flow-card"
+              data-max-files="{{ vagasRestantes }}"
+              data-documento-id="{{ docUrlId | escape }}"
+              data-solicitacao-id="{{ solicitacaoId | escape }}"
+              data-id-solicitacoes="{{ idSolicitacoes | escape }}"
+              data-nome-unidade="{{ nomeUnidade | escape }}"
+              data-fase="{{ faseSolicitacao | escape }}"
+              data-nome-componente="{{ nomeComponente | escape }}"
+              data-nome-documento="{{ nomeDocumento | escape }}"
+            >
+            <div class="upload-flow-header">
+              <div>
+                <h4 class="upload-flow-title">
+                  📤 Carregar novos anexos
+                </h4>
+
+                <p class="upload-flow-description">
+                  Selecione até {{ vagasRestantes }} arquivo(s).
+                  Os arquivos serão enviados somente depois que você clicar em
+                  <strong>ENVIAR ANEXOS</strong>.
+                </p>
+              </div>
+
+              <span id="contadorArquivosSelecionados" class="upload-flow-count">
+                0 selecionado(s)
+              </span>
+            </div>
+
+            <input
+              type="file"
+              id="inputArquivosFlow"
+              multiple
+              hidden
+            />
+
+            <div class="upload-flow-actions-top">
+              <button
+                type="button"
+                id="btnCarregarArquivosFlow"
+                class="upload-flow-dropzone"
+                aria-label="Carregar anexos"
+              >
+                <span class="upload-flow-dropzone-icon" aria-hidden="true">
+                  ↑
+                </span>
+
+                <span class="upload-flow-dropzone-title">
+                  Carregar anexos
+                </span>
+
+                
+              </button>
+            </div>
+
+            <div id="mensagemUploadFlow" class="upload-flow-message"></div>
+
+            <div id="previewArquivosFlow" class="upload-flow-preview">
+              <div class="upload-flow-empty">
+                Nenhum arquivo selecionado.
+              </div>
+            </div>
+
+            <div class="custom-form-actions custom-form-actions-anexos">
+
+              
+
+              <button
+                type="button"
+                id="btnEnviarArquivosFlow"
+                class="btn-cloud btn-cloud-disabled"
+                disabled
+                aria-disabled="true">
+                ENVIAR ANEXOS
+              </button>
+
+            </div>
+          </div>
+
+        {% else %}
+
+        <div class="card-anexos-existentes">
+          <div class="card-anexos-header">
+            <h4 class="card-anexos-title">
+              Limite de anexos atingido
+            </h4>
+          </div>
+
+          <p style="margin:0;color:#374151;font-weight:600;">
+            Este documento já possui 10 arquivos anexados.
+            Para enviar novos arquivos, limpe os anexos existentes.
+          </p>
+
+        
+        </div>
+
+        {% endif %}
+
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modalSalvarArquivos" class="cloud-modal-overlay" aria-hidden="true">
+  <div class="cloud-modal" role="dialog" aria-modal="true" aria-labelledby="modalSalvarArquivosTitulo">
+    <div class="cloud-modal-header" id="modalSalvarArquivosTitulo">Sucesso</div>
+    <div class="cloud-modal-body">Arquivos SALVO com sucesso.</div>
+    <div class="cloud-modal-footer">
+      <button id="btnOkSalvarArquivos" type="button" class="cloud-btn-ok">OK</button>
+    </div>
+  </div>
+</div>
+<div id="modalExcluirAnexo" class="cloud-modal-overlay" aria-hidden="true">
+  <div class="cloud-modal" role="dialog" aria-modal="true">
+    <div class="cloud-modal-header">Confirmar exclusão</div>
+    <div class="cloud-modal-body">Deseja excluir o anexo <strong id="nomeArquivoExcluir"></strong>?</div>
+    <div class="cloud-modal-footer" style="gap:10px;">
+      <button id="btnCancelarExcluirAnexo" type="button" class="btn-cloud btn-cloud-outline">CANCELAR</button>
+      <button id="btnConfirmarExcluirAnexo" type="button" class="btn-cloud">EXCLUIR</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalAnexoExcluidoSucesso" class="cloud-modal-overlay" aria-hidden="true">
+  <div class="cloud-modal" role="dialog" aria-modal="true">
+    <div class="cloud-modal-header">Sucesso</div>
+    <div class="cloud-modal-body">Anexo excluído com sucesso.</div>
+    <div class="cloud-modal-footer">
+      <button id="btnOkAnexoExcluido" type="button" class="cloud-btn-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<div
+  id="modalConfirmarLimparAnexos"
+  class="cloud-modal-overlay"
+  style="display:none;"
+  aria-hidden="true">
+
+  <div
+    class="cloud-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalLimparAnexos">
+
+    <div
+      id="tituloModalLimparAnexos"
+      class="cloud-modal-header">
+      🗑️ Limpar anexos
+    </div>
+
+    <div class="cloud-modal-body">
+      Deseja excluir todos os anexos desta documentação?
+
+      <p style="
+        margin:14px 0 0;
+        color:#b91c1c;
+        font-weight:600;
+      ">
+        Esta ação não poderá ser desfeita.
+      </p>
+    </div>
+
+    <div class="cloud-modal-footer">
+      <button
+        type="button"
+        id="btnCancelarLimparAnexos"
+        class="btn-cloud btn-cloud-outline">
+        CANCELAR
+      </button>
+
+      <button
+        type="button"
+        id="btnConfirmarLimparAnexos"
+        class="btn-cloud">
+        CONFIRMAR EXCLUSÃO
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<div
+  id="modalUploadFlowSucesso"
+  class="cloud-modal-overlay"
+  aria-hidden="true"
+>
+  <div
+    class="cloud-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalUploadFlowSucesso"
+  >
+    <div
+      class="cloud-modal-header"
+      id="tituloModalUploadFlowSucesso"
+    >
+      Anexos enviados
+    </div>
+
+    <div class="cloud-modal-body">
+      Todos os anexos foram armazenados com sucesso.
+    </div>
+
+    <div class="cloud-modal-footer">
+      <button
+        id="btnOkUploadFlowSucesso"
+        type="button"
+        class="cloud-btn-ok"
+      >
+        OK
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+
+function abrirCloudModal(modal) {
+  if (!modal) {
+    return;
+  }
+
+  document.documentElement.classList.add(
+    "cloud-modal-aberto"
+  );
+
+  document.body.classList.add(
+    "cloud-modal-aberto"
+  );
+
+  modal.style.display = "flex";
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function fecharCloudModal(modal) {
+  if (!modal) {
+    return;
+  }
+
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+
+  document.documentElement.classList.remove(
+    "cloud-modal-aberto"
+  );
+
+  document.body.classList.remove(
+    "cloud-modal-aberto"
+  );
+}
+
+
+  document.addEventListener("DOMContentLoaded", function () {
+  document
+    .querySelectorAll(".cloud-modal-overlay")
+    .forEach(function (modal) {
+      /*
+       * Move o modal diretamente para o BODY.
+       * Isso impede containers do Power Pages de limitarem
+       * o fundo escuro ou criarem frestas nas laterais.
+       */
+      if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+      }
+    });
+});
+
+    (function () {
+      var SOLICITACAO_ID = "{{ solicitacaoId | escape }}";
+      var STORAGE_KEY = "anexos_documentos_projetos_submit_ok";
+      var STORAGE_UPLOAD_KEY = "upload_pendente_anexo_{{ docUrlId | escape }}";
+      var TEMPO_MINIMO_CARREGANDO_MS = 12000;
+      var QTD_ANEXOS_ATUAL = Number("{{ qtdAnexos | default: 0 }}");
+      var TEMPO_ESPERA_UPLOAD_MS = 8000;
+      var uploadControleAnexoEmAndamento = false;
+      var timerLiberarUploadControle = null;
+
+      function byId(id) {
+        return document.getElementById(id);
+      }
+
+      function isVisible(el) {
+        return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+      }
+
+    
+      function getMessagePanel() {
+        return byId("MessagePanel");
+      }
+
+      function getMessageText() {
+        var panel = getMessagePanel();
+        if (!panel) return "";
+        return (panel.innerText || panel.textContent || "").trim().toLowerCase();
+      }
+
+      function isErrorMessage() {
+        var panel = getMessagePanel();
+        var text = getMessageText();
+        if (!panel) return false;
+
+        return (
+          /alert-danger|validation-summary-errors|error/i.test(panel.className || "") ||
+          text.indexOf("erro") > -1 ||
+          text.indexOf("error") > -1 ||
+          text.indexOf("falhou") > -1 ||
+          text.indexOf("failed") > -1
+        );
+      }
+
+      function isSuccessMessage() {
+    var panel = getMessagePanel();
+    var text = getMessageText();
+
+    if (!panel) return false;
+
+    return (
+      /alert-success|success/i.test(panel.className || "") ||
+      text.indexOf("sucesso") > -1 ||
+      text.indexOf("salvo") > -1 ||
+      text.indexOf("saved") > -1 ||
+      text.indexOf("success") > -1
+    );
+  }
+
+      function openModal() {
+        var modal = byId("modalSalvarArquivos");
+        if (modal) {
+          modal.style.display = "flex";
+          modal.setAttribute("aria-hidden", "false");
+        }
+      }
+
+      function closeModal() {
+        var modal = byId("modalSalvarArquivos");
+        if (modal) {
+          modal.style.display = "none";
+          modal.setAttribute("aria-hidden", "true");
+        }
+      }
+      function avisarPaginaPaiUploadConcluido() {
+    var payload = {
+      tipo: "ANEXOS_FILHO_SUBMIT_OK",
+      docId: "{{ docUrlId | escape }}"
+    };
+
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(payload, "*");
+    } else {
+      window.location.reload();
+    }
+  }
+
+
+      function hideNativeSuccessMessage() {
+        var panel = getMessagePanel();
+        if (panel && isSuccessMessage() && !isErrorMessage()) {
+          panel.style.display = "none";
+        }
+      }
+
+      function resetSaveButton() {
+        var btnSalvar = byId("btnSalvarArquivosCustom");
+        if (btnSalvar) {
+          btnSalvar.disabled = false;
+          btnSalvar.textContent = "SALVAR NA LISTA";
+        }
+      }
+
+      function atualizarPaginaAtual() {
+          closeModal();
+          window.location.reload();
+        }
+
+        function handlePostSubmitFeedback() {
+          var pending = sessionStorage.getItem(STORAGE_KEY) === "1";
+          if (!pending) return;
+
+          if (isErrorMessage()) {
+            sessionStorage.removeItem(STORAGE_KEY);
+            resetSaveButton();
+            return;
+          }
+
+          if (isSuccessMessage() && !isErrorMessage()) {
+            sessionStorage.removeItem(STORAGE_KEY);
+            hideNativeSuccessMessage();
+
+
+
+            setTimeout(function () {
+              avisarPaginaPaiUploadConcluido();
+            }, 8000);
+          }
+        }
+
+        var anexoSelecionadoParaExcluir = {
+          anexoId: "",
+          filename: "",
+          qtdAnexado: "{{ qtdAnexos }}"
+        };
+
+  var FLOW_EXCLUIR_ANEXO_URL = "/_api/cloudflow/v1.0/trigger/274f69ba-5440-f111-bec7-7ced8da81546";
+
+  function abrirModalExcluirAnexo(annotationId, filename) {
+    anexoSelecionadoParaExcluir.anexoId = annotationId;
+    anexoSelecionadoParaExcluir.filename = filename;
+
+    var nomeArquivo = byId("nomeArquivoExcluir");
+    var modal = byId("modalExcluirAnexo");
+
+    if (nomeArquivo) nomeArquivo.textContent = filename || "arquivo selecionado";
+
+    if (modal) {
+      modal.style.display = "flex";
+      modal.setAttribute("aria-hidden", "false");
+    }
+  }
+
+  function fecharModalExcluirAnexo() {
+    var modal = byId("modalExcluirAnexo");
+
+    if (modal) {
+      modal.style.display = "none";
+      modal.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  function abrirModalSucessoExclusao() {
+    var modal = byId("modalAnexoExcluidoSucesso");
+
+    if (modal) {
+      modal.style.display = "flex";
+      modal.setAttribute("aria-hidden", "false");
+    }
+  }
+
+  function obterItemAnexoNaLista(annotationId) {
+  if (!annotationId) return null;
+
+  return document.querySelector(
+    '.item-anexo-existente[data-annotation-id="' + annotationId + '"]'
+  );
+}
+
+function marcarAnexoComoExcluindo(annotationId) {
+  var item = obterItemAnexoNaLista(annotationId);
+
+  if (!item) {
+    return;
+  }
+
+  item.classList.add("excluindo");
+
+  /*
+   * Mantém os elementos no DOM para que possam
+   * ser restaurados caso o Flow apresente erro.
+   */
+  var info = item.querySelector(".item-anexo-info");
+  var acoes = item.querySelector(".item-anexo-acoes");
+
+  if (info) {
+    info.style.display = "none";
+  }
+
+  if (acoes) {
+    acoes.style.display = "none";
+  }
+
+  var status =
+    item.querySelector(".item-anexo-status-excluindo");
+
+  if (!status) {
+    status = document.createElement("div");
+    status.className =
+      "item-anexo-status-excluindo";
+
+    item.appendChild(status);
+  }
+
+  status.textContent =
+    "EXCLUINDO ANEXO...";
+}
+
+
+function restaurarAnexoAposErro(annotationId) {
+  var item = obterItemAnexoNaLista(annotationId);
+
+  if (!item) {
+    return;
+  }
+
+  item.classList.remove("excluindo");
+
+  var info =
+    item.querySelector(".item-anexo-info");
+
+  var acoes =
+    item.querySelector(".item-anexo-acoes");
+
+  var status =
+    item.querySelector(
+      ".item-anexo-status-excluindo"
+    );
+
+  if (info) {
+    info.style.display = "";
+  }
+
+  if (acoes) {
+    acoes.style.display = "";
+  }
+
+  if (status) {
+    status.remove();
+  }
+}
+
+function atualizarContadorAnexos() {
+  var quantidade = document.querySelectorAll(
+    ".item-anexo-existente"
+  ).length;
+
+  var contador = document.querySelector(".card-anexos-count");
+
+  if (contador) {
+    contador.textContent = quantidade + " arquivo(s)";
+  }
+
+  if (quantidade === 0) {
+    var card = document.querySelector(".card-anexos-existentes");
+
+    if (card) {
+      card.remove();
+    }
+  }
+}
+
+function removerAnexoDaLista(
+  annotationId,
+  aoConcluir
+) {
+  var item =
+    obterItemAnexoNaLista(annotationId);
+
+  if (!item) {
+    if (typeof aoConcluir === "function") {
+      aoConcluir();
+    }
+
+    return;
+  }
+
+  item.style.transition =
+    "opacity .25s ease, transform .25s ease";
+
+  item.style.opacity = "0";
+  item.style.transform = "translateX(20px)";
+
+  setTimeout(function () {
+    item.remove();
+
+    atualizarContadorAnexos();
+
+    if (typeof aoConcluir === "function") {
+      aoConcluir();
+    }
+  }, 250);
+}
+
+function resetarBotaoExcluir() {
+  var btn = byId("btnConfirmarExcluirAnexo");
+
+  if (!btn) return;
+
+  btn.disabled = false;
+  btn.textContent = "EXCLUIR";
+}
+
+
+function avisarPaginaPaiUltimoAnexoExcluido(
+  anexoId
+) {
+  var payload = {
+    type: "ANEXO_EXCLUIDO_COM_SUCESSO",
+    tipo: "ANEXO_EXCLUIDO_COM_SUCESSO",
+
+    ultimoAnexo: true,
+
+    docId: "{{ docUrlId | escape }}",
+    anexoId: anexoId
+  };
+
+  console.log(
+    "✅ Último anexo excluído. Avisando a página pai.",
+    payload
+  );
+
+  if (
+    window.parent &&
+    window.parent !== window
+  ) {
+    window.parent.postMessage(
+      payload,
+      "*"
+    );
+
+    return;
+  }
+
+  /*
+   * Segurança caso a página filha seja
+   * aberta fora do iframe.
+   */
+  window.location.reload();
+}
+
+
+
+function executarFlowExcluirAnexo() {
+  var btnConfirmar =
+    byId("btnConfirmarExcluirAnexo");
+
+  var anexoId =
+    anexoSelecionadoParaExcluir.anexoId;
+
+  if (!anexoId) {
+    alert("Não foi possível identificar o anexo.");
+    return;
+  }
+
+  if (
+    btnConfirmar &&
+    btnConfirmar.dataset.executando === "true"
+  ) {
+    return;
+  }
+
+  /*
+   * Antes de fechar qualquer modal, verifica
+   * se a função segura do Power Pages existe.
+   */
+  if (
+    !window.shell ||
+    typeof shell.ajaxSafePost !== "function"
+  ) {
+    console.error(
+      "shell.ajaxSafePost não está disponível."
+    );
+
+    alert(
+      "Não foi possível acessar o serviço de exclusão. " +
+      "Atualize a página e tente novamente."
+    );
+
+    return;
+  }
+
+  var quantidadeAntesDaExclusao =
+    document.querySelectorAll(
+      ".item-anexo-existente"
+    ).length;
+
+  var eraUltimoAnexo =
+    quantidadeAntesDaExclusao === 1;
+
+  if (btnConfirmar) {
+    btnConfirmar.dataset.executando = "true";
+    btnConfirmar.disabled = true;
+    btnConfirmar.textContent = "EXCLUINDO...";
+  }
+
+  /*
+   * Agora pode fechar o modal, pois já validamos
+   * que o recurso necessário está disponível.
+   */
+  fecharModalExcluirAnexo();
+
+  /*
+   * Mostra o spinner no item durante toda
+   * a execução real do Flow.
+   */
+  marcarAnexoComoExcluindo(anexoId);
+
+  var payloadFlow = {
+    DocumentId: "{{ docUrlId | escape }}",
+    AnexoId: anexoId,
+    QtdAnexado: String(quantidadeAntesDaExclusao)
+  };
+
+  console.log(
+    "🗑️ Executando Flow de exclusão:",
+    {
+      url: FLOW_EXCLUIR_ANEXO_URL,
+      payload: payloadFlow,
+      eraUltimoAnexo: eraUltimoAnexo
+    }
+  );
+
+  shell.ajaxSafePost({
+    type: "POST",
+
+    url: FLOW_EXCLUIR_ANEXO_URL,
+
+    data: {
+      eventData: JSON.stringify(payloadFlow)
+    }
+  })
+  .done(function (response) {
+    console.log(
+      "✅ Flow de exclusão executado com sucesso:",
+      response
+    );
+
+    /*
+     * Somente depois do sucesso real do Flow
+     * limpa os dados da seleção.
+     */
+    anexoSelecionadoParaExcluir.anexoId = "";
+    anexoSelecionadoParaExcluir.filename = "";
+
+    if (eraUltimoAnexo) {
+  /*
+   * Aguarda 3 segundos para o item permanecer
+   * como "EXCLUÍDO" e o Dataverse concluir a atualização
+   * antes de atualizar a página pai.
+   */
+  setTimeout(function () {
+    avisarPaginaPaiUltimoAnexoExcluido(
+      anexoId
+    );
+  }, 4000);
+
+  return;
+}
+    /*
+     * Ainda existem anexos:
+     * remove somente o item excluído.
+     */
+    removerAnexoDaLista(
+      anexoId,
+      function () {
+        abrirModalSucessoExclusao();
+      }
+    );
+  })
+  .fail(function (
+    xhr,
+    textStatus,
+    errorThrown
+  ) {
+    console.error(
+      "❌ Erro ao executar Flow de exclusão:",
+      {
+        status:
+          xhr && xhr.status
+            ? xhr.status
+            : "desconhecido",
+
+        textStatus: textStatus,
+
+        errorThrown: errorThrown,
+
+        responseText:
+          xhr && xhr.responseText
+            ? xhr.responseText
+            : ""
+      }
+    );
+
+    /*
+     * Como o Flow falhou, devolve o item
+     * ao estado normal.
+     */
+    restaurarAnexoAposErro(anexoId);
+
+    alert(
+      "Não foi possível excluir o anexo. " +
+      "O arquivo continua disponível."
+    );
+  })
+  .always(function () {
+    if (btnConfirmar) {
+      btnConfirmar.dataset.executando = "false";
+      btnConfirmar.disabled = false;
+      btnConfirmar.textContent = "EXCLUIR";
+    }
+  });
+}
+
+  function elementoEstaVisivel(el) {
+  if (!el) return false;
+
+  return !!(
+    el.offsetWidth ||
+    el.offsetHeight ||
+    el.getClientRects().length
+  );
+}
+
+
+
+      document.addEventListener("DOMContentLoaded", function () {
+        var btnSalvar = byId("btnSalvarArquivosCustom");
+        var btnOk = byId("btnOkSalvarArquivos");
+        var btnVoltar = byId("btnVoltarProjeto");
+        var btnCancelarAnexos = byId("btnCancelarAnexos");
+        var panel = getMessagePanel();
+
+        
+
+        var btnAtualizarPagina = byId("btnAtualizarPagina");
+
+          if (btnAtualizarPagina) {
+            btnAtualizarPagina.addEventListener("click", function () {
+              window.location.reload();
+            });
+          }
+
+       document.addEventListener("change", function (e) {
+  if (
+    e.target &&
+    e.target.closest("#custom-modern-form") &&
+    e.target.matches("input[type='file']")
+  ) {
+    uploadControleAnexoEmAndamento = true;
+
+    controlarBotoesSalvarAnexos();
+
+    clearTimeout(timerLiberarUploadControle);
+
+    timerLiberarUploadControle = setTimeout(function () {
+      uploadControleAnexoEmAndamento = false;
+      controlarBotoesSalvarAnexos();
+    }, 3000);
+
+    setTimeout(controlarBotoesSalvarAnexos, 500);
+    setTimeout(controlarBotoesSalvarAnexos, 1000);
+    setTimeout(controlarBotoesSalvarAnexos, 2000);
+    setTimeout(controlarBotoesSalvarAnexos, 3000);
+    setTimeout(controlarBotoesSalvarAnexos, 5000);
+  }
+});
+
+        
+        var painelMensagem = byId("MessagePanel");
+
+          if (painelMensagem) {
+            painelMensagem.style.display = "none";
+          }
+
+
+        document.querySelectorAll(".btn-download-anexo").forEach(function (btn) {
+          btn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            var anexoId = this.closest(".item-anexo-existente").getAttribute("data-annotation-id");
+
+            if (!anexoId) {
+              alert("Não foi possível identificar o anexo.");
+              return;
+            }
+
+            window.location.href = "/_entity/annotation/" + anexoId + "/fileattachment";
+          });
+        });
+        if (btnVoltar) {
+          btnVoltar.addEventListener("click", function () {
+            if (SOLICITACAO_ID && SOLICITACAO_ID !== "") {
+              window.location.href = "/status-projeto/?id=" + encodeURIComponent(SOLICITACAO_ID);
+            } else {
+              window.location.href = "/status-projeto/";
+            }
+          });
+        }
+        if (btnCancelarAnexos) {
+            btnCancelarAnexos.addEventListener("click", function () {
+              window.location.reload();
+            });
+          }
+
+        if (btnOk) {
+            btnOk.addEventListener("click", atualizarPaginaAtual);
+          }
+
+        handlePostSubmitFeedback();
+
+        if (panel) {
+          var observer = new MutationObserver(function () {
+            handlePostSubmitFeedback();
+          });
+
+          observer.observe(panel, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["class", "style"]
+          });
+        }
+        document.querySelectorAll(".btn-excluir-anexo").forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      abrirModalExcluirAnexo(
+        this.getAttribute("data-annotation-id"),
+        this.getAttribute("data-filename")
+      );
+    });
+  });
+
+  var btnCancelarExcluir = byId("btnCancelarExcluirAnexo");
+  if (btnCancelarExcluir) {
+    btnCancelarExcluir.addEventListener("click", fecharModalExcluirAnexo);
+  }
+
+  var btnConfirmarExcluir = byId("btnConfirmarExcluirAnexo");
+  if (btnConfirmarExcluir) {
+    btnConfirmarExcluir.addEventListener("click", executarFlowExcluirAnexo);
+  }
+
+  var btnOkAnexoExcluido = byId("btnOkAnexoExcluido");
+
+if (btnOkAnexoExcluido) {
+  btnOkAnexoExcluido.addEventListener(
+    "click",
+    function () {
+      var modal =
+        byId("modalAnexoExcluidoSucesso");
+
+      if (modal) {
+        modal.style.display = "none";
+
+        modal.setAttribute(
+          "aria-hidden",
+          "true"
+        );
+      }
+
+      /*
+       * Recarrega somente a filha para atualizar:
+       * - quantidade disponível;
+       * - limite de anexos;
+       * - área para novos uploads.
+       *
+       * Esse botão só será exibido quando
+       * ainda existirem outros anexos.
+       */
+      window.location.reload();
+    }
+  );
+}
+
+
+
+
+      });
+    })();
+
+    (function () {
+      "use strict";
+
+      var uploadCard =
+        document.getElementById("uploadAnexosFlow");
+
+      var DOCUMENTO_ID =
+        uploadCard
+          ? uploadCard.getAttribute("data-documento-id") || ""
+          : "";
+
+      var SOLICITACAO_ID =
+        uploadCard
+          ? uploadCard.getAttribute("data-solicitacao-id") || ""
+          : "";
+
+      var ID_SOLICITACOES =
+        uploadCard
+          ? uploadCard.getAttribute("data-id-solicitacoes") || ""
+          : "";
+
+      var NOME_UNIDADE =
+        uploadCard
+          ? uploadCard.getAttribute("data-nome-unidade") || ""
+          : "";
+
+      var FASE =
+        uploadCard
+          ? uploadCard.getAttribute("data-fase") || ""
+          : "";
+
+      var NOME_COMPONENTE =
+        uploadCard
+          ? uploadCard.getAttribute("data-nome-componente") || ""
+          : "";
+
+      var NOME_DOCUMENTO =
+        uploadCard
+          ? uploadCard.getAttribute("data-nome-documento") || ""
+          : "";
+
+      var TABELA_ORIGEM =
+        "cloud_docs_solicitacao";
+
+
+function limparSegmentoDiretorio(valor) {
+  return String(valor || "")
+    /*
+     * Impede que caracteres de caminho criem
+     * pastas inesperadas ou invalidem o endereço.
+     */
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+
+var DIRETORIO = [
+  "",
+  "Documentos Compartilhados",
+  limparSegmentoDiretorio(NOME_UNIDADE),
+  limparSegmentoDiretorio(ID_SOLICITACOES),
+  limparSegmentoDiretorio(FASE),
+  "COMPONENTES",
+  limparSegmentoDiretorio(NOME_COMPONENTE),
+  limparSegmentoDiretorio(NOME_DOCUMENTO)
+].join("/");
+
+
+console.log("📁 Diretório calculado:", {
+  nomeUnidade: NOME_UNIDADE,
+  idSolicitacoes: ID_SOLICITACOES,
+  fase: FASE,
+  nomeComponente: NOME_COMPONENTE,
+  nomeDocumento: NOME_DOCUMENTO,
+  diretorio: DIRETORIO
+});
+
+  var FLOW_UPLOAD_URL =
+    "/_api/cloudflow/v1.0/trigger/39c151fb-887d-f111-ab0f-002248de86ec";
+
+  var MAX_ARQUIVOS =
+    Number("{{ 10 | minus: qtdAnexos }}");
+
+
+  var LIMITE_ARQUIVO_MB = 81;
+
+var MAX_TAMANHO_ARQUIVO =
+  LIMITE_ARQUIVO_MB * 1024 * 1024;
+
+  var arquivosSelecionados = [];
+  var envioEmAndamento = false;
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function gerarNomeArquivoComTimestamp(nomeOriginal) {
+  var agora = new Date();
+
+  /*
+   * Garante que o horário utilizado seja o horário
+   * de São Paulo, independentemente da configuração
+   * do computador do usuário.
+   */
+  var partesData = new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }
+  ).formatToParts(agora);
+
+  function obterParte(tipo) {
+    var parte = partesData.find(function (item) {
+      return item.type === tipo;
+    });
+
+    return parte ? parte.value : "";
+  }
+
+  var dia = obterParte("day");
+  var mes = obterParte("month");
+  var ano = obterParte("year");
+  var hora = obterParte("hour");
+  var minuto = obterParte("minute");
+  var segundo = obterParte("second");
+
+  var timestamp =
+    dia +
+    mes +
+    ano +
+    "_" +
+    hora +
+    minuto +
+    segundo;
+
+  nomeOriginal = String(
+    nomeOriginal || "arquivo"
+  ).trim();
+
+  /*
+   * Usa o último ponto para preservar nomes que
+   * já possuem pontos, como:
+   * projeto.versao.final.pdf
+   */
+  var posicaoUltimoPonto =
+    nomeOriginal.lastIndexOf(".");
+
+  var possuiExtensao =
+    posicaoUltimoPonto > 0 &&
+    posicaoUltimoPonto <
+      nomeOriginal.length - 1;
+
+  if (!possuiExtensao) {
+    return nomeOriginal + "_" + timestamp;
+  }
+
+  var nomeSemExtensao =
+    nomeOriginal.substring(
+      0,
+      posicaoUltimoPonto
+    );
+
+  var extensao =
+    nomeOriginal.substring(
+      posicaoUltimoPonto
+    );
+
+  return (
+    nomeSemExtensao +
+    "_" +
+    timestamp +
+    extensao
+  );
+}
+
+  function criarChaveArquivo(file) {
+    return [
+      file.name,
+      file.size,
+      file.lastModified
+    ].join("|");
+  }
+
+  function formatarTamanho(bytes) {
+    if (!bytes) {
+      return "0 bytes";
+    }
+
+    var unidades = ["bytes", "KB", "MB", "GB"];
+    var indice = Math.floor(
+      Math.log(bytes) / Math.log(1024)
+    );
+
+    indice = Math.min(indice, unidades.length - 1);
+
+    var valor = bytes / Math.pow(1024, indice);
+
+    return valor.toFixed(indice === 0 ? 0 : 2) +
+      " " +
+      unidades[indice];
+  }
+
+  function mostrarMensagem(texto, tipo) {
+    var mensagem = byId("mensagemUploadFlow");
+
+    if (!mensagem) {
+      return;
+    }
+
+    mensagem.textContent = texto || "";
+    mensagem.className = "upload-flow-message";
+
+    if (texto) {
+      mensagem.classList.add(tipo || "info");
+    }
+  }
+
+  function limparMensagem() {
+    mostrarMensagem("", "");
+  }
+
+  function criarPreviewArquivo(itemArquivo) {
+    var file = itemArquivo.file;
+    var preview = document.createElement("div");
+
+    preview.className = "upload-flow-file-preview";
+
+    if (
+      file.type &&
+      file.type.toLowerCase().indexOf("image/") === 0
+    ) {
+      var imagem = document.createElement("img");
+      var objectUrl = URL.createObjectURL(file);
+
+      imagem.src = objectUrl;
+      imagem.alt = file.name;
+
+      imagem.onload = function () {
+        URL.revokeObjectURL(objectUrl);
+      };
+
+      preview.appendChild(imagem);
+      return preview;
+    }
+
+    var extensao = "";
+
+    if (file.name.indexOf(".") > -1) {
+      extensao = file.name
+        .split(".")
+        .pop()
+        .toUpperCase();
+    }
+
+    preview.textContent =
+      extensao && extensao.length <= 4
+        ? extensao
+        : "📄";
+
+    return preview;
+  }
+
+  function atualizarBotaoEnviar() {
+    var btnEnviar = byId("btnEnviarArquivosFlow");
+
+    if (!btnEnviar) {
+      return;
+    }
+
+    var possuiArquivoPendente =
+      arquivosSelecionados.some(function (item) {
+        return item.status !== "sucesso";
+      });
+
+    var habilitar =
+      arquivosSelecionados.length > 0 &&
+      possuiArquivoPendente &&
+      !envioEmAndamento;
+
+    btnEnviar.disabled = !habilitar;
+    btnEnviar.setAttribute(
+      "aria-disabled",
+      habilitar ? "false" : "true"
+    );
+
+    if (habilitar) {
+      btnEnviar.classList.remove("btn-cloud-disabled");
+    } else {
+      btnEnviar.classList.add("btn-cloud-disabled");
+    }
+  }
+
+  function removerArquivo(chave) {
+    if (envioEmAndamento) {
+      return;
+    }
+
+    arquivosSelecionados =
+      arquivosSelecionados.filter(function (item) {
+        return item.chave !== chave;
+      });
+
+    renderizarPreview();
+  }
+
+  function renderizarPreview() {
+    var container = byId("previewArquivosFlow");
+    var contador = byId("contadorArquivosSelecionados");
+
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = "";
+
+    if (contador) {
+      contador.textContent =
+        arquivosSelecionados.length +
+        " selecionado(s)";
+    }
+
+    if (arquivosSelecionados.length === 0) {
+      var vazio = document.createElement("div");
+
+      vazio.className = "upload-flow-empty";
+      vazio.textContent = "Nenhum arquivo selecionado.";
+
+      container.appendChild(vazio);
+      atualizarBotaoEnviar();
+      return;
+    }
+
+    arquivosSelecionados.forEach(function (itemArquivo) {
+      var file = itemArquivo.file;
+      var item = document.createElement("div");
+
+      item.className = "upload-flow-item";
+
+      if (itemArquivo.status === "enviando") {
+          item.classList.add("is-enviando");
+        }
+
+        if (itemArquivo.status === "sucesso") {
+          item.classList.add("is-sucesso");
+        }
+
+        if (itemArquivo.status === "erro") {
+          item.classList.add("is-erro");
+        }
+      item.setAttribute(
+        "data-file-key",
+        itemArquivo.chave
+      );
+
+      var preview = criarPreviewArquivo(itemArquivo);
+
+      var info = document.createElement("div");
+      info.className = "upload-flow-file-info";
+
+      var nome = document.createElement("div");
+      nome.className = "upload-flow-file-name";
+      nome.textContent = file.name;
+
+      var meta = document.createElement("div");
+      meta.className = "upload-flow-file-meta";
+      meta.textContent =
+        formatarTamanho(file.size) +
+        " • " +
+        (
+          file.type ||
+          "application/octet-stream"
+        );
+
+      var status = document.createElement("div");
+      status.className = "upload-flow-file-status";
+
+      if (itemArquivo.status === "enviando") {
+        status.classList.add("enviando");
+        status.textContent = "SALVANDO ANEXO...";
+      } else if (itemArquivo.status === "sucesso") {
+        status.classList.add("sucesso");
+        status.textContent = "ENVIADO COM SUCESSO";
+      } else if (itemArquivo.status === "erro") {
+        status.classList.add("erro");
+        status.textContent =
+          itemArquivo.erro ||
+          "ERRO AO ENVIAR";
+      } else {
+        status.textContent = "AGUARDANDO ENVIO";
+      }
+
+      info.appendChild(nome);
+      info.appendChild(meta);
+      info.appendChild(status);
+
+      var remover = document.createElement("button");
+
+      remover.type = "button";
+      remover.className = "upload-flow-remove";
+      remover.textContent = "🗑️";
+      remover.title = "Remover arquivo";
+
+      remover.disabled =
+        envioEmAndamento ||
+        itemArquivo.status === "sucesso";
+
+      remover.addEventListener("click", function () {
+        removerArquivo(itemArquivo.chave);
+      });
+
+      item.appendChild(preview);
+      item.appendChild(info);
+      item.appendChild(remover);
+
+      container.appendChild(item);
+    });
+
+    atualizarBotaoEnviar();
+  }
+
+  function adicionarArquivos(fileList) {
+    limparMensagem();
+
+    var mensagensErro = [];
+
+    Array.from(fileList || []).forEach(function (file) {
+      if (arquivosSelecionados.length >= MAX_ARQUIVOS) {
+        mensagensErro.push(
+          "O limite de " +
+          MAX_ARQUIVOS +
+          " arquivo(s) selecionado(s) foi atingido."
+        );
+
+        return;
+      }
+
+      if (file.size > MAX_TAMANHO_ARQUIVO) {
+        mensagensErro.push(
+        file.name +
+        " ultrapassa o limite de " +
+        LIMITE_ARQUIVO_MB +
+        " MB por arquivo."
+      );
+
+        return;
+      }
+
+      var chave = criarChaveArquivo(file);
+
+      var duplicado =
+        arquivosSelecionados.some(function (item) {
+          return item.chave === chave;
+        });
+
+      if (duplicado) {
+        mensagensErro.push(
+          file.name +
+          " já está na lista."
+        );
+
+        return;
+      }
+
+      arquivosSelecionados.push({
+        chave: chave,
+        file: file,
+        status: "pendente",
+        erro: "",
+        annotationId: ""
+      });
+    });
+
+    if (mensagensErro.length > 0) {
+      mostrarMensagem(
+        mensagensErro.join(" "),
+        "erro"
+      );
+    }
+
+    renderizarPreview();
+  }
+
+  function arquivoParaBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+
+      reader.onload = function () {
+        var resultado = String(reader.result || "");
+        var partes = resultado.split(",");
+
+        resolve(
+          partes.length > 1
+            ? partes[1]
+            : resultado
+        );
+      };
+
+      reader.onerror = function () {
+        reject(
+          new Error(
+            "Não foi possível ler o arquivo " +
+            file.name +
+            "."
+          )
+        );
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function obterTokenPortal() {
+    return new Promise(function (resolve, reject) {
+      if (
+        !window.shell ||
+        typeof shell.getTokenDeferred !== "function"
+      ) {
+        reject(
+          new Error(
+            "O token de segurança do portal não está disponível."
+          )
+        );
+
+        return;
+      }
+
+      shell.getTokenDeferred()
+        .done(function (token) {
+          resolve(token);
+        })
+        .fail(function () {
+          reject(
+            new Error(
+              "Não foi possível obter o token de segurança."
+            )
+          );
+        });
+    });
+  }
+
+
+  function chamarFlowUpload(payload) {
+  return new Promise(function (resolve, reject) {
+    /*
+     * O eventData é o envelope exigido pelo Power Pages.
+     * O dadosJson é a entrada Texto criada no gatilho.
+     */
+    var dadosParaFlow = {
+      dadosJson: JSON.stringify(payload)
+    };
+
+    console.log("URL do Flow:", FLOW_UPLOAD_URL);
+
+    console.log("Metadados enviados:", {
+      documentId: payload.documentId,
+      tabelaOrigem: payload.tabelaOrigem,
+      nomeArquivo: payload.nomeArquivo,
+      tipoMime: payload.tipoMime,
+      tamanhoBase64: payload.conteudoBase64
+        ? payload.conteudoBase64.length
+        : 0
+    });
+
+    shell.ajaxSafePost({
+      type: "POST",
+      url: FLOW_UPLOAD_URL,
+
+      data: {
+        eventData: JSON.stringify(dadosParaFlow)
+      }
+    })
+    .done(function (response) {
+      console.log("Resposta original do Flow:", response);
+
+      var resultado = {};
+
+      if (response) {
+        if (typeof response === "string") {
+          try {
+            resultado = JSON.parse(response);
+          } catch (erroJson) {
+            console.warn(
+              "O retorno do Flow não era um JSON válido:",
+              response
+            );
+
+            resultado = {};
+          }
+        } else {
+          resultado = response;
+        }
+      }
+
+      if (
+        String(resultado.sucesso || "").toLowerCase() === "false"
+      ) {
+        reject(
+          new Error(
+            resultado.mensagem ||
+            "O Flow informou que o arquivo não foi armazenado."
+          )
+        );
+
+        return;
+      }
+
+      resolve(resultado);
+    })
+    .fail(function (xhr, textStatus, errorThrown) {
+      var statusHttp =
+        xhr && xhr.status
+          ? xhr.status
+          : "desconhecido";
+
+      console.error("Erro completo ao chamar o Flow:", {
+        statusHttp: statusHttp,
+        textStatus: textStatus,
+        errorThrown: errorThrown,
+        responseText:
+          xhr && xhr.responseText
+            ? xhr.responseText
+            : ""
+      });
+
+      var mensagem =
+        "Não foi possível acionar o fluxo de anexos.";
+
+      if (statusHttp === 400) {
+        mensagem =
+          "A chamada do fluxo foi rejeitada. " +
+          "Verifique se o gatilho possui uma entrada Texto chamada dadosJson.";
+      } else if (statusHttp === 401 || statusHttp === 403) {
+        mensagem =
+          "Você não possui permissão para executar o fluxo de anexos.";
+      } else if (statusHttp === 404) {
+        mensagem =
+          "O fluxo de anexos não foi encontrado.";
+      } else if (statusHttp === 413) {
+        mensagem =
+          "O conteúdo enviado ultrapassou o limite aceito pela chamada.";
+      }
+
+      reject(
+        new Error(
+          mensagem +
+          " Código HTTP: " +
+          statusHttp +
+          "."
+        )
+      );
+    });
+  });
+}
+
+  function abrirModalSucessoUpload() {
+  abrirCloudModal(
+    byId("modalUploadFlowSucesso")
+  );
+}
+
+  function fecharModalSucessoUpload() {
+      fecharCloudModal(
+        byId("modalUploadFlowSucesso")
+      );
+    }
+
+  function avisarPaginaPai() {
+    var payload = {
+      type: "ANEXOS_FILHO_SUBMIT_OK",
+      tipo: "ANEXOS_FILHO_SUBMIT_OK",
+      docId: DOCUMENTO_ID
+    };
+
+    if (
+      window.parent &&
+      window.parent !== window
+    ) {
+      window.parent.postMessage(payload, "*");
+    } else {
+      window.location.reload();
+    }
+  }
+
+  async function enviarArquivos() {
+    if (envioEmAndamento) {
+      return;
+    }
+
+    var arquivosPendentes =
+      arquivosSelecionados.filter(function (item) {
+        return item.status !== "sucesso";
+      });
+
+    if (arquivosPendentes.length === 0) {
+        return;
+      }
+
+      var dadosDiretorioFaltando = [];
+
+      if (!NOME_UNIDADE) {
+        dadosDiretorioFaltando.push("nome da unidade");
+      }
+
+      if (!ID_SOLICITACOES) {
+        dadosDiretorioFaltando.push("ID da solicitação");
+      }
+
+      if (!FASE) {
+        dadosDiretorioFaltando.push("fase");
+      }
+
+      if (!NOME_COMPONENTE) {
+        dadosDiretorioFaltando.push("nome do componente");
+      }
+
+      if (!NOME_DOCUMENTO) {
+        dadosDiretorioFaltando.push("nome do documento");
+      }
+
+      if (dadosDiretorioFaltando.length > 0) {
+        console.error(
+          "❌ Não foi possível montar o DIRETORIO:",
+          dadosDiretorioFaltando
+        );
+
+        mostrarMensagem(
+          "Não foi possível identificar: " +
+          dadosDiretorioFaltando.join(", ") +
+          ". Atualize a página e tente novamente.",
+          "erro"
+        );
+
+        return;
+      }
+
+      envioEmAndamento = true;
+
+    limparMensagem();
+
+    var btnEnviar = byId("btnEnviarArquivosFlow");
+    var btnCarregar = byId("btnCarregarArquivosFlow");
+
+    if (btnEnviar) {
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = "ENVIANDO ANEXOS...";
+    }
+
+    if (btnCarregar) {
+      btnCarregar.disabled = true;
+    }
+
+    renderizarPreview();
+
+   
+    var quantidadeErros = 0;
+
+    for (
+      var indice = 0;
+      indice < arquivosSelecionados.length;
+      indice++
+    ) {
+      var itemArquivo = arquivosSelecionados[indice];
+
+      if (itemArquivo.status === "sucesso") {
+        continue;
+      }
+
+      itemArquivo.status = "enviando";
+      itemArquivo.erro = "";
+
+      renderizarPreview();
+
+      try {
+        var base64 = await arquivoParaBase64(
+          itemArquivo.file
+        );
+
+        var nomeArquivoComTimestamp =
+          gerarNomeArquivoComTimestamp(
+            itemArquivo.file.name
+          );
+
+        var payload = {
+          documentId:
+            DOCUMENTO_ID,
+
+          cloud_solicitacoesid:
+            SOLICITACAO_ID,
+
+          DIRETORIO:
+            DIRETORIO,
+
+          tabelaOrigem:
+            TABELA_ORIGEM,
+
+          nomeArquivo:
+            nomeArquivoComTimestamp,
+
+          tipoMime:
+            itemArquivo.file.type ||
+            "application/octet-stream",
+
+          conteudoBase64:
+            base64,
+
+          descricao:
+            "Anexo enviado pelo Power Pages"
+        };
+
+        var respostaFlow =
+  await chamarFlowUpload(payload);
+
+        itemArquivo.status = "sucesso";
+        itemArquivo.annotationId =
+          respostaFlow.annotationId || "";
+
+      } catch (erroArquivo) {
+        quantidadeErros++;
+
+        itemArquivo.status = "erro";
+        itemArquivo.erro =
+          erroArquivo.message ||
+          "Erro ao enviar arquivo.";
+      }
+
+      renderizarPreview();
+    }
+
+    envioEmAndamento = false;
+
+    if (btnEnviar) {
+      btnEnviar.textContent =
+        quantidadeErros > 0
+          ? "REENVIAR PENDENTES"
+          : "ENVIAR ANEXOS";
+    }
+
+    if (btnCarregar) {
+      btnCarregar.disabled = false;
+    }
+
+    renderizarPreview();
+
+    if (quantidadeErros > 0) {
+      mostrarMensagem(
+        quantidadeErros +
+        " arquivo(s) não foram enviados. " +
+        "Corrija o problema e clique em REENVIAR PENDENTES.",
+        "erro"
+      );
+
+      return;
+    }
+
+    var todosConcluidos =
+      arquivosSelecionados.every(function (item) {
+        return item.status === "sucesso";
+      });
+
+    if (todosConcluidos) {
+      abrirModalSucessoUpload();
+    }
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+      var input = byId("inputArquivosFlow");
+      var btnCarregar =
+        byId("btnCarregarArquivosFlow");
+      var btnEnviar =
+        byId("btnEnviarArquivosFlow");
+      var btnOk =
+        byId("btnOkUploadFlowSucesso");
+
+      if (btnCarregar && input) {
+      btnCarregar.addEventListener(
+        "click",
+        function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          console.log("📎 Clique em CARREGAR ANEXOS capturado.");
+
+          if (envioEmAndamento) {
+            return;
+          }
+
+          input.click();
+        }
+      );
+    } else {
+  console.error(
+    "❌ Elementos do upload não encontrados:",
+    {
+      btnCarregar: btnCarregar,
+      input: input
+    }
+  );
+}
+
+      if (input) {
+        input.addEventListener(
+          "change",
+          function () {
+            adicionarArquivos(input.files);
+
+            /*
+             * Permite selecionar novamente o mesmo arquivo
+             * depois que ele for removido da lista.
+             */
+            input.value = "";
+          }
+        );
+      }
+
+      if (btnEnviar) {
+        btnEnviar.addEventListener(
+          "click",
+          function () {
+            enviarArquivos();
+          }
+        );
+      }
+
+      if (btnOk) {
+        btnOk.addEventListener(
+          "click",
+          function () {
+            fecharModalSucessoUpload();
+            avisarPaginaPai();
+          }
+        );
+      }
+
+      renderizarPreview();
+    }
+  );
+})();
+
+
+/* =====================================================
+   LIMPAR TODOS OS ANEXOS
+   Mesma função/Flow da lixeira da página pai
+   ===================================================== */
+(function () {
+  "use strict";
+
+  var DOCUMENTO_ID_LIMPEZA =
+    "{{ docUrlId | escape }}";
+
+  var FLOW_LIMPAR_ANEXOS =
+    "/_api/cloudflow/v1.0/trigger/645f6fc7-a429-f111-88b4-002248de77b7";
+
+    var TEMPO_SINCRONIZACAO_EXCLUSAO_MS = 12000;
+
+  var limpezaEmAndamento = false;
+
+  function el(id) {
+    return document.getElementById(id);
+  }
+
+  function abrirModalLimpeza() {
+    var modal =
+      el("modalConfirmarLimparAnexos");
+
+    if (!modal) {
+      return;
+    }
+
+    modal.style.display = "flex";
+    modal.setAttribute(
+      "aria-hidden",
+      "false"
+    );
+  }
+
+  function fecharModalLimpeza() {
+    var modal =
+      el("modalConfirmarLimparAnexos");
+
+    if (!modal) {
+      return;
+    }
+
+    modal.style.display = "none";
+    modal.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+  }
+
+  function mostrarEstadoLimpando() {
+    var lista =
+      document.querySelector(
+        ".lista-anexos-existentes"
+      );
+
+    var btnLimpar =
+      el("btnLimparAnexos");
+
+    var btnEnviar =
+      el("btnEnviarArquivosFlow");
+
+    var btnCarregar =
+      el("btnCarregarArquivosFlow");
+
+    if (lista) {
+      lista.classList.add(
+        "limpando-anexos"
+      );
+
+      /*
+       * Substitui visualmente a lista pelo estado
+       * de processamento, sem remover os itens
+       * antes do sucesso do Flow.
+       */
+      var estado =
+        document.createElement("div");
+
+      estado.className =
+        "estado-limpando-anexos";
+
+      estado.textContent =
+        "LIMPANDO ANEXOS...";
+
+      lista.innerHTML = "";
+      lista.appendChild(estado);
+    }
+
+    if (btnLimpar) {
+      btnLimpar.disabled = true;
+      btnLimpar.textContent =
+        "LIMPANDO ANEXOS...";
+    }
+
+    if (btnEnviar) {
+      btnEnviar.disabled = true;
+      btnEnviar.setAttribute(
+        "aria-disabled",
+        "true"
+      );
+    }
+
+    if (btnCarregar) {
+      btnCarregar.disabled = true;
+    }
+  }
+
+  function restaurarBotaoLimpeza() {
+    var btnLimpar =
+      el("btnLimparAnexos");
+
+    if (!btnLimpar) {
+      return;
+    }
+
+    btnLimpar.disabled = false;
+    btnLimpar.textContent =
+      "LIMPAR ANEXOS";
+  }
+
+  function avisarPaginaPaiLimpezaConcluida() {
+    var mensagem = {
+      /*
+       * Reutiliza a mensagem que a página pai
+       * já reconhece para fechar o iframe e
+       * atualizar imediatamente.
+       */
+      type:
+        "ANEXOS_FILHO_SUBMIT_OK",
+
+      tipo:
+        "ANEXOS_FILHO_SUBMIT_OK",
+
+      origem:
+        "LIMPAR_ANEXOS",
+
+      docId:
+        DOCUMENTO_ID_LIMPEZA
+    };
+
+    console.log(
+      "✅ Limpeza concluída. Avisando página pai.",
+      mensagem
+    );
+
+    if (
+      window.parent &&
+      window.parent !== window
+    ) {
+      window.parent.postMessage(
+        mensagem,
+        "*"
+      );
+
+      return;
+    }
+
+    window.location.reload();
+  }
+
+  function executarLimpezaAnexos() {
+    if (limpezaEmAndamento) {
+      return;
+    }
+
+    if (!DOCUMENTO_ID_LIMPEZA) {
+      alert(
+        "Não foi possível identificar a documentação."
+      );
+
+      return;
+    }
+
+    if (
+      !window.shell ||
+      typeof shell.ajaxSafePost !==
+        "function"
+    ) {
+      alert(
+        "Contexto de segurança do portal não disponível."
+      );
+
+      return;
+    }
+
+    limpezaEmAndamento = true;
+
+    var btnConfirmar =
+      el("btnConfirmarLimparAnexos");
+
+    if (btnConfirmar) {
+      btnConfirmar.disabled = true;
+      btnConfirmar.textContent =
+        "EXCLUINDO...";
+    }
+
+    fecharModalLimpeza();
+    mostrarEstadoLimpando();
+
+    /*
+     * Mesmo formato enviado pela lixeira
+     * da página pai.
+     */
+    var payload = {
+      eventData: JSON.stringify({
+        DocumentoID:
+          DOCUMENTO_ID_LIMPEZA
+      })
+    };
+
+    console.log(
+      "🗑️ Executando limpeza de anexos:",
+      {
+        url: FLOW_LIMPAR_ANEXOS,
+        documentoID:
+          DOCUMENTO_ID_LIMPEZA
+      }
+    );
+
+    shell.ajaxSafePost({
+      type: "POST",
+      contentType:
+        "application/json",
+
+      url:
+        FLOW_LIMPAR_ANEXOS,
+
+      data:
+        JSON.stringify(payload),
+
+      processData:
+        false,
+
+      global:
+        false
+    })
+    .done(function (response) {
+        console.log(
+          "✅ Flow de limpeza concluído:",
+          response
+        );
+
+        /*
+        * Mantém a filha exibindo LIMPANDO ANEXOS...
+        * enquanto o Dataverse finaliza a exclusão e
+        * disponibiliza o novo resultado para o FetchXML.
+        */
+        console.log(
+          "✅ Aguardando sincronização do Dataverse por " +
+          (TEMPO_SINCRONIZACAO_EXCLUSAO_MS / 1000) +
+          " segundos."
+        );
+
+        setTimeout(function () {
+          console.log(
+            "✅ Sincronização concluída. Avisando a página pai."
+          );
+
+          avisarPaginaPaiLimpezaConcluida();
+
+        }, TEMPO_SINCRONIZACAO_EXCLUSAO_MS);
+      })
+    
+    
+    
+    
+    .fail(function (xhr) {
+      console.error(
+        "❌ Erro ao limpar anexos:",
+        xhr
+      );
+
+      limpezaEmAndamento = false;
+
+      if (btnConfirmar) {
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent =
+          "CONFIRMAR EXCLUSÃO";
+      }
+
+      restaurarBotaoLimpeza();
+
+      alert(
+        "Não foi possível limpar os anexos. " +
+        "A página será atualizada para restaurar a lista."
+      );
+
+      window.location.reload();
+    });
+  }
+
+  function configurarLimpezaAnexos() {
+    var btnAbrir =
+      el("btnLimparAnexos");
+
+    var btnCancelar =
+      el("btnCancelarLimparAnexos");
+
+    var btnConfirmar =
+      el("btnConfirmarLimparAnexos");
+
+    if (btnAbrir) {
+      btnAbrir.addEventListener(
+        "click",
+        function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!limpezaEmAndamento) {
+            abrirModalLimpeza();
+          }
+        }
+      );
+    }
+
+    if (btnCancelar) {
+      btnCancelar.addEventListener(
+        "click",
+        function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!limpezaEmAndamento) {
+            fecharModalLimpeza();
+          }
+        }
+      );
+    }
+
+    if (btnConfirmar) {
+      btnConfirmar.addEventListener(
+        "click",
+        function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          executarLimpezaAnexos();
+        }
+      );
+    }
+
+    var modal =
+      el("modalConfirmarLimparAnexos");
+
+    if (modal) {
+      modal.addEventListener(
+        "click",
+        function (event) {
+          if (
+            event.target === modal &&
+            !limpezaEmAndamento
+          ) {
+            fecharModalLimpeza();
+          }
+        }
+      );
+    }
+  }
+
+  if (
+    document.readyState === "loading"
+  ) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      configurarLimpezaAnexos
+    );
+  } else {
+    configurarLimpezaAnexos();
+  }
+
+})();
+</script>

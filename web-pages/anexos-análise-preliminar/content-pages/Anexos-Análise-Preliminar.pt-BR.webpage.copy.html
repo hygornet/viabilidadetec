@@ -1,0 +1,1580 @@
+{% assign analisePreliminarId = request.params["id"] | default: "" | strip %}
+
+{% assign solicitacaoId = "" %}
+{% assign idSolicitacoes = "" %}
+{% assign nomeUnidade = "" %}
+{% assign faseSolicitacao = "" %}
+{% assign nomeComponente = "ANÁLISE PRELIMINAR" %}
+{% assign nomeDocumento = "DOCUMENTAÇÃO DO PROJETO" %}
+
+{% if analisePreliminarId != "" %}
+
+  {% fetchxml analiseAtual %}
+  <fetch top="1">
+    <entity name="cloud_analise_preliminar">
+
+      <attribute name="cloud_analise_preliminarid" />
+      <attribute name="cloud_fk_solicitacoes" />
+      <attribute name="createdon" />
+
+      <filter type="and">
+        <condition
+          attribute="cloud_analise_preliminarid"
+          operator="eq"
+          value="{{ analisePreliminarId }}"
+        />
+
+        <condition
+          attribute="createdon"
+          operator="le"
+          value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}'
+        />
+      </filter>
+
+      <link-entity
+        name="cloud_solicitacoes"
+        from="cloud_solicitacoesid"
+        to="cloud_fk_solicitacoes"
+        alias="sol"
+        link-type="inner">
+
+        <attribute name="cloud_solicitacoesid" />
+        <attribute name="cloud_id_solicitacoes" />
+        <attribute name="cloud_fase" />
+        <attribute name="cloud_fk_municipios" />
+
+        <link-entity
+          name="cloud_municipios"
+          from="cloud_municipiosid"
+          to="cloud_fk_municipios"
+          alias="municipio"
+          link-type="outer">
+
+          <link-entity
+            name="cloud_regionais"
+            from="cloud_regionaisid"
+            to="cloud_fk_regionais"
+            alias="regional"
+            link-type="outer">
+
+            <link-entity
+              name="cloud_unidades"
+              from="cloud_unidadesid"
+              to="cloud_fk_unidades"
+              alias="unidade"
+              link-type="outer">
+
+              <attribute name="cloud_nome_unidade" />
+
+            </link-entity>
+          </link-entity>
+        </link-entity>
+      </link-entity>
+
+    </entity>
+  </fetch>
+  {% endfetchxml %}
+
+  {% assign registroAnalise = analiseAtual.results.entities | first %}
+
+  {% if registroAnalise %}
+
+    {% assign solicitacaoId =
+      registroAnalise["sol.cloud_solicitacoesid"]
+      | default: ""
+    %}
+
+    {% assign idSolicitacoes =
+      registroAnalise["sol.cloud_id_solicitacoes"]
+      | default: ""
+      | strip
+    %}
+
+    {% assign nomeUnidade =
+      registroAnalise["unidade.cloud_nome_unidade"]
+      | default: ""
+      | strip
+    %}
+
+    {% if registroAnalise["sol.cloud_fase"] %}
+      {% assign faseSolicitacao =
+        registroAnalise["sol.cloud_fase"].label
+        | default: "PROJETO"
+        | upcase
+        | strip
+      %}
+    {% else %}
+      {% assign faseSolicitacao = "PROJETO" %}
+    {% endif %}
+
+  {% endif %}
+
+{% endif %}
+
+{% fetchxml anexosAnalisePreliminar %}
+<fetch>
+  <entity name="annotation">
+    <attribute name="annotationid" />
+    <attribute name="filename" />
+    <attribute name="mimetype" />
+    <attribute name="filesize" />
+    <attribute name="createdon" />
+
+    <filter type="and">
+      <condition
+        attribute="objectid"
+        operator="eq"
+        value="{{ analisePreliminarId }}"
+      />
+
+      <condition
+        attribute="isdocument"
+        operator="eq"
+        value="1"
+      />
+
+      <condition
+        attribute="createdon"
+        operator="le"
+        value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}'
+      />
+    </filter>
+
+    <order attribute="createdon" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign qtdAnexos =
+  anexosAnalisePreliminar.results.entities.size
+  | default: 0
+%}
+
+{% assign vagasRestantes = 15 | minus: qtdAnexos %}
+
+{% if vagasRestantes < 0 %}
+  {% assign vagasRestantes = 0 %}
+{% endif %}
+
+<div class="pagina-anexo-preliminar">
+
+  {% if analisePreliminarId == "" %}
+
+    <div class="upload-flow-error-card">
+      Não foi possível identificar o registro da análise preliminar.
+    </div>
+
+  {% elsif registroAnalise == nil %}
+
+    <div class="upload-flow-error-card">
+      O registro da análise preliminar não foi encontrado ou não está disponível para este usuário.
+    </div>
+
+  {% elsif vagasRestantes > 0 %}
+
+    <div
+      id="uploadAnexosFlow"
+      class="upload-flow-card"
+      data-max-files="{{ vagasRestantes }}"
+      data-documento-id="{{ analisePreliminarId | escape }}"
+      data-solicitacao-id="{{ solicitacaoId | escape }}"
+      data-id-solicitacoes="{{ idSolicitacoes | escape }}"
+      data-nome-unidade="{{ nomeUnidade | escape }}"
+      data-fase="{{ faseSolicitacao | escape }}"
+      data-nome-componente="{{ nomeComponente | escape }}"
+      data-nome-documento="{{ nomeDocumento | escape }}"
+    >
+
+      <div class="upload-flow-header">
+        <div>
+          <h4 class="upload-flow-title">
+            📤 Carregar novos anexos
+          </h4>
+
+          <p class="upload-flow-description">
+            Selecione até {{ vagasRestantes }} arquivo(s).
+            Os arquivos serão enviados somente depois que você clicar em
+            <strong>ENVIAR ANEXOS</strong>.
+          </p>
+        </div>
+
+        <span
+          id="contadorArquivosSelecionados"
+          class="upload-flow-count">
+          0 selecionado(s)
+        </span>
+      </div>
+
+      <input
+        type="file"
+        id="inputArquivosFlow"
+        multiple
+        hidden
+      />
+
+      <div class="upload-flow-actions-top">
+        <button
+          type="button"
+          id="btnCarregarArquivosFlow"
+          class="upload-flow-dropzone"
+          aria-label="Carregar anexos"
+        >
+          <span
+            class="upload-flow-dropzone-icon"
+            aria-hidden="true">
+            ↑
+          </span>
+
+          <span class="upload-flow-dropzone-title">
+            Carregar anexos
+          </span>
+        </button>
+      </div>
+
+      <div
+        id="mensagemUploadFlow"
+        class="upload-flow-message">
+      </div>
+
+      <div
+        id="previewArquivosFlow"
+        class="upload-flow-preview">
+        <div class="upload-flow-empty">
+          Nenhum arquivo selecionado.
+        </div>
+      </div>
+
+      <div class="custom-form-actions-anexos">
+        <button
+          type="button"
+          id="btnEnviarArquivosFlow"
+          class="btn-cloud btn-cloud-disabled"
+          disabled
+          aria-disabled="true">
+          ENVIAR ANEXOS
+        </button>
+      </div>
+
+    </div>
+
+  {% else %}
+
+    <div class="upload-flow-limit-card">
+      <strong>Limite de anexos atingido.</strong><br>
+      Esta análise preliminar já possui 15 arquivos anexados.
+      Exclua um arquivo na lista acima para liberar um novo envio.
+    </div>
+
+  {% endif %}
+
+</div>
+
+<div
+  id="modalUploadFlowSucesso"
+  class="cloud-modal-overlay"
+  aria-hidden="true">
+
+  <div
+    class="cloud-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalUploadFlowSucesso">
+
+    <div
+      class="cloud-modal-header"
+      id="tituloModalUploadFlowSucesso">
+      Anexos enviados
+    </div>
+
+    <div class="cloud-modal-body">
+      Todos os anexos foram armazenados com sucesso.
+    </div>
+
+    <div class="cloud-modal-footer">
+      <button
+        id="btnOkUploadFlowSucesso"
+        type="button"
+        class="cloud-btn-ok">
+        OK
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function enviarAlturaParaPaginaPai() {
+    if (
+      !window.parent ||
+      window.parent === window
+    ) {
+      return;
+    }
+
+    window.requestAnimationFrame(function () {
+      var altura = Math.max(
+        document.documentElement.scrollHeight || 0,
+        document.body.scrollHeight || 0,
+        320
+      );
+
+      window.parent.postMessage(
+        {
+          type: "ANEXO_PRELIMINAR_ALTURA",
+          tipo: "ANEXO_PRELIMINAR_ALTURA",
+          altura: altura
+        },
+        window.location.origin
+      );
+    });
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+      document
+        .querySelectorAll(".cloud-modal-overlay")
+        .forEach(function (modal) {
+          if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+          }
+        });
+
+      enviarAlturaParaPaginaPai();
+
+      if (window.ResizeObserver) {
+        var resizeObserver =
+          new ResizeObserver(function () {
+            enviarAlturaParaPaginaPai();
+          });
+
+        resizeObserver.observe(document.body);
+      } else {
+        window.setInterval(
+          enviarAlturaParaPaginaPai,
+          1000
+        );
+      }
+    }
+  );
+
+  function abrirCloudModal(modal) {
+    if (!modal) {
+      return;
+    }
+
+    document.documentElement.classList.add(
+      "cloud-modal-aberto"
+    );
+
+    document.body.classList.add(
+      "cloud-modal-aberto"
+    );
+
+    modal.style.display = "flex";
+    modal.setAttribute(
+      "aria-hidden",
+      "false"
+    );
+
+    enviarAlturaParaPaginaPai();
+  }
+
+  function fecharCloudModal(modal) {
+    if (!modal) {
+      return;
+    }
+
+    modal.style.display = "none";
+    modal.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+
+    document.documentElement.classList.remove(
+      "cloud-modal-aberto"
+    );
+
+    document.body.classList.remove(
+      "cloud-modal-aberto"
+    );
+  }
+
+  var uploadCard =
+    byId("uploadAnexosFlow");
+
+  if (!uploadCard) {
+    enviarAlturaParaPaginaPai();
+    return;
+  }
+
+  var DOCUMENTO_ID =
+    uploadCard.getAttribute(
+      "data-documento-id"
+    ) || "";
+
+  var SOLICITACAO_ID =
+    uploadCard.getAttribute(
+      "data-solicitacao-id"
+    ) || "";
+
+  var ID_SOLICITACOES =
+    uploadCard.getAttribute(
+      "data-id-solicitacoes"
+    ) || "";
+
+  var NOME_UNIDADE =
+    uploadCard.getAttribute(
+      "data-nome-unidade"
+    ) || "";
+
+  var FASE =
+    uploadCard.getAttribute(
+      "data-fase"
+    ) || "PROJETO";
+
+  var NOME_COMPONENTE =
+    uploadCard.getAttribute(
+      "data-nome-componente"
+    ) || "ANÁLISE PRELIMINAR";
+
+  var NOME_DOCUMENTO =
+    uploadCard.getAttribute(
+      "data-nome-documento"
+    ) || "DOCUMENTAÇÃO DO PROJETO";
+
+  var TABELA_ORIGEM =
+    "cloud_analise_preliminar";
+
+  var FLOW_UPLOAD_URL =
+    "/_api/cloudflow/v1.0/trigger/39c151fb-887d-f111-ab0f-002248de86ec";
+
+  var MAX_ARQUIVOS =
+    Number(
+      uploadCard.getAttribute(
+        "data-max-files"
+      ) || "0"
+    );
+
+  var LIMITE_ARQUIVO_MB = 81;
+
+  var MAX_TAMANHO_ARQUIVO =
+    LIMITE_ARQUIVO_MB *
+    1024 *
+    1024;
+
+  var arquivosSelecionados = [];
+  var envioEmAndamento = false;
+
+  function limparSegmentoDiretorio(valor) {
+    return String(valor || "")
+      .replace(/[\\/:*?"<>|]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /*
+   * Estrutura específica da análise preliminar.
+   * Mantém as mesmas variáveis usadas pelo Flow
+   * da página de documentos.
+   */
+  var DIRETORIO = [
+    "",
+    "Documentos Compartilhados",
+    limparSegmentoDiretorio(
+      NOME_UNIDADE
+    ),
+    limparSegmentoDiretorio(
+      ID_SOLICITACOES
+    ),
+    limparSegmentoDiretorio(
+      FASE
+    ),
+    limparSegmentoDiretorio(
+      NOME_COMPONENTE
+    ),
+    limparSegmentoDiretorio(
+      NOME_DOCUMENTO
+    )
+  ].join("/");
+
+  console.log(
+    "📁 Diretório da análise preliminar:",
+    {
+      nomeUnidade: NOME_UNIDADE,
+      idSolicitacoes: ID_SOLICITACOES,
+      fase: FASE,
+      nomeComponente: NOME_COMPONENTE,
+      nomeDocumento: NOME_DOCUMENTO,
+      diretorio: DIRETORIO
+    }
+  );
+
+  function criarChaveArquivo(file) {
+    return [
+      file.name,
+      file.size,
+      file.lastModified
+    ].join("|");
+  }
+
+  function formatarTamanho(bytes) {
+    if (!bytes) {
+      return "0 bytes";
+    }
+
+    var unidades = [
+      "bytes",
+      "KB",
+      "MB",
+      "GB"
+    ];
+
+    var indice = Math.floor(
+      Math.log(bytes) /
+      Math.log(1024)
+    );
+
+    indice = Math.min(
+      indice,
+      unidades.length - 1
+    );
+
+    var valor =
+      bytes /
+      Math.pow(1024, indice);
+
+    return (
+      valor.toFixed(
+        indice === 0 ? 0 : 2
+      ) +
+      " " +
+      unidades[indice]
+    );
+  }
+
+  function mostrarMensagem(
+    texto,
+    tipo
+  ) {
+    var mensagem =
+      byId("mensagemUploadFlow");
+
+    if (!mensagem) {
+      return;
+    }
+
+    mensagem.textContent =
+      texto || "";
+
+    mensagem.className =
+      "upload-flow-message";
+
+    if (texto) {
+      mensagem.classList.add(
+        tipo || "info"
+      );
+    }
+
+    enviarAlturaParaPaginaPai();
+  }
+
+  function limparMensagem() {
+    mostrarMensagem("", "");
+  }
+
+  function criarPreviewArquivo(
+    itemArquivo
+  ) {
+    var file = itemArquivo.file;
+    var preview =
+      document.createElement("div");
+
+    preview.className =
+      "upload-flow-file-preview";
+
+    if (
+      itemArquivo.status ===
+      "enviando"
+    ) {
+      preview.classList.add(
+        "is-loading"
+      );
+
+      var spinner =
+        document.createElement("span");
+
+      spinner.className =
+        "upload-flow-spinner";
+
+      preview.appendChild(spinner);
+
+      return preview;
+    }
+
+    if (
+      file.type &&
+      file.type
+        .toLowerCase()
+        .indexOf("image/") === 0
+    ) {
+      var imagem =
+        document.createElement("img");
+
+      var objectUrl =
+        URL.createObjectURL(file);
+
+      imagem.src = objectUrl;
+      imagem.alt = file.name;
+
+      imagem.onload = function () {
+        URL.revokeObjectURL(
+          objectUrl
+        );
+      };
+
+      preview.appendChild(imagem);
+
+      return preview;
+    }
+
+    var extensao = "";
+
+    if (
+      file.name.indexOf(".") > -1
+    ) {
+      extensao = file.name
+        .split(".")
+        .pop()
+        .toUpperCase();
+    }
+
+    preview.textContent =
+      extensao &&
+      extensao.length <= 5
+        ? extensao
+        : "📄";
+
+    return preview;
+  }
+
+  function atualizarBotaoEnviar() {
+    var btnEnviar =
+      byId("btnEnviarArquivosFlow");
+
+    if (!btnEnviar) {
+      return;
+    }
+
+    var possuiArquivoPendente =
+      arquivosSelecionados.some(
+        function (item) {
+          return (
+            item.status !==
+            "sucesso"
+          );
+        }
+      );
+
+    var habilitar =
+      arquivosSelecionados.length > 0 &&
+      possuiArquivoPendente &&
+      !envioEmAndamento;
+
+    btnEnviar.disabled =
+      !habilitar;
+
+    btnEnviar.setAttribute(
+      "aria-disabled",
+      habilitar
+        ? "false"
+        : "true"
+    );
+
+    if (habilitar) {
+      btnEnviar.classList.remove(
+        "btn-cloud-disabled"
+      );
+    } else {
+      btnEnviar.classList.add(
+        "btn-cloud-disabled"
+      );
+    }
+  }
+
+  function removerArquivo(chave) {
+    if (envioEmAndamento) {
+      return;
+    }
+
+    arquivosSelecionados =
+      arquivosSelecionados.filter(
+        function (item) {
+          return (
+            item.chave !== chave
+          );
+        }
+      );
+
+    renderizarPreview();
+  }
+
+  function renderizarPreview() {
+    var container =
+      byId("previewArquivosFlow");
+
+    var contador =
+      byId(
+        "contadorArquivosSelecionados"
+      );
+
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = "";
+
+    if (contador) {
+      contador.textContent =
+        arquivosSelecionados.length +
+        " selecionado(s)";
+    }
+
+    if (
+      arquivosSelecionados.length ===
+      0
+    ) {
+      var vazio =
+        document.createElement("div");
+
+      vazio.className =
+        "upload-flow-empty";
+
+      vazio.textContent =
+        "Nenhum arquivo selecionado.";
+
+      container.appendChild(vazio);
+
+      atualizarBotaoEnviar();
+      enviarAlturaParaPaginaPai();
+
+      return;
+    }
+
+    arquivosSelecionados.forEach(
+      function (itemArquivo) {
+        var file = itemArquivo.file;
+
+        var item =
+          document.createElement("div");
+
+        item.className =
+          "upload-flow-item";
+
+        if (
+          itemArquivo.status ===
+          "enviando"
+        ) {
+          item.classList.add(
+            "is-enviando"
+          );
+        }
+
+        if (
+          itemArquivo.status ===
+          "sucesso"
+        ) {
+          item.classList.add(
+            "is-sucesso"
+          );
+        }
+
+        if (
+          itemArquivo.status ===
+          "erro"
+        ) {
+          item.classList.add(
+            "is-erro"
+          );
+        }
+
+        item.setAttribute(
+          "data-file-key",
+          itemArquivo.chave
+        );
+
+        var preview =
+          criarPreviewArquivo(
+            itemArquivo
+          );
+
+        var info =
+          document.createElement("div");
+
+        info.className =
+          "upload-flow-file-info";
+
+        var nome =
+          document.createElement("div");
+
+        nome.className =
+          "upload-flow-file-name";
+
+        nome.textContent =
+          file.name;
+
+        var meta =
+          document.createElement("div");
+
+        meta.className =
+          "upload-flow-file-meta";
+
+        meta.textContent =
+          formatarTamanho(
+            file.size
+          ) +
+          " • " +
+          (
+            file.type ||
+            "application/octet-stream"
+          );
+
+        var status =
+          document.createElement("div");
+
+        status.className =
+          "upload-flow-file-status";
+
+        if (
+          itemArquivo.status ===
+          "enviando"
+        ) {
+          status.classList.add(
+            "enviando"
+          );
+
+          status.textContent =
+            "SALVANDO ANEXO...";
+        } else if (
+          itemArquivo.status ===
+          "sucesso"
+        ) {
+          status.classList.add(
+            "sucesso"
+          );
+
+          status.textContent =
+            "ENVIADO COM SUCESSO";
+        } else if (
+          itemArquivo.status ===
+          "erro"
+        ) {
+          status.classList.add(
+            "erro"
+          );
+
+          status.textContent =
+            itemArquivo.erro ||
+            "ERRO AO ENVIAR";
+        } else {
+          status.textContent =
+            "AGUARDANDO ENVIO";
+        }
+
+        info.appendChild(nome);
+        info.appendChild(meta);
+        info.appendChild(status);
+
+        var remover =
+          document.createElement(
+            "button"
+          );
+
+        remover.type = "button";
+
+        remover.className =
+          "upload-flow-remove";
+
+        remover.textContent = "🗑️";
+        remover.title =
+          "Remover arquivo";
+
+        remover.disabled =
+          envioEmAndamento ||
+          itemArquivo.status ===
+            "sucesso";
+
+        remover.addEventListener(
+          "click",
+          function () {
+            removerArquivo(
+              itemArquivo.chave
+            );
+          }
+        );
+
+        item.appendChild(preview);
+        item.appendChild(info);
+        item.appendChild(remover);
+
+        container.appendChild(item);
+      }
+    );
+
+    atualizarBotaoEnviar();
+    enviarAlturaParaPaginaPai();
+  }
+
+  function adicionarArquivos(
+    fileList
+  ) {
+    limparMensagem();
+
+    var mensagensErro = [];
+
+    Array.from(
+      fileList || []
+    ).forEach(function (file) {
+      if (
+        arquivosSelecionados.length >=
+        MAX_ARQUIVOS
+      ) {
+        mensagensErro.push(
+          "O limite de " +
+          MAX_ARQUIVOS +
+          " arquivo(s) selecionado(s) foi atingido."
+        );
+
+        return;
+      }
+
+      if (
+        file.size >
+        MAX_TAMANHO_ARQUIVO
+      ) {
+        mensagensErro.push(
+          file.name +
+          " ultrapassa o limite de " +
+          LIMITE_ARQUIVO_MB +
+          " MB por arquivo."
+        );
+
+        return;
+      }
+
+      var chave =
+        criarChaveArquivo(file);
+
+      var duplicado =
+        arquivosSelecionados.some(
+          function (item) {
+            return (
+              item.chave === chave
+            );
+          }
+        );
+
+      if (duplicado) {
+        mensagensErro.push(
+          file.name +
+          " já está na lista."
+        );
+
+        return;
+      }
+
+      arquivosSelecionados.push({
+        chave: chave,
+        file: file,
+        status: "pendente",
+        erro: "",
+        annotationId: ""
+      });
+    });
+
+    if (
+      mensagensErro.length > 0
+    ) {
+      mostrarMensagem(
+        mensagensErro.join(" "),
+        "erro"
+      );
+    }
+
+    renderizarPreview();
+  }
+
+  function arquivoParaBase64(file) {
+    return new Promise(
+      function (
+        resolve,
+        reject
+      ) {
+        var reader =
+          new FileReader();
+
+        reader.onload =
+          function () {
+            var resultado =
+              String(
+                reader.result || ""
+              );
+
+            var partes =
+              resultado.split(",");
+
+            resolve(
+              partes.length > 1
+                ? partes[1]
+                : resultado
+            );
+          };
+
+        reader.onerror =
+          function () {
+            reject(
+              new Error(
+                "Não foi possível ler o arquivo " +
+                file.name +
+                "."
+              )
+            );
+          };
+
+        reader.readAsDataURL(file);
+      }
+    );
+  }
+
+  function chamarFlowUpload(
+    payload
+  ) {
+    return new Promise(
+      function (
+        resolve,
+        reject
+      ) {
+        if (
+          !window.shell ||
+          typeof shell.ajaxSafePost !==
+            "function"
+        ) {
+          reject(
+            new Error(
+              "O contexto de segurança do portal não está disponível."
+            )
+          );
+
+          return;
+        }
+
+        var dadosParaFlow = {
+          dadosJson:
+            JSON.stringify(payload)
+        };
+
+        shell.ajaxSafePost({
+          type: "POST",
+
+          url:
+            FLOW_UPLOAD_URL,
+
+          data: {
+            eventData:
+              JSON.stringify(
+                dadosParaFlow
+              )
+          }
+        })
+        .done(function (response) {
+          var resultado = {};
+
+          if (response) {
+            if (
+              typeof response ===
+              "string"
+            ) {
+              try {
+                resultado =
+                  JSON.parse(
+                    response
+                  );
+              } catch (
+                erroJson
+              ) {
+                console.warn(
+                  "O retorno do Flow não era JSON:",
+                  response
+                );
+
+                resultado = {};
+              }
+            } else {
+              resultado =
+                response;
+            }
+          }
+
+          if (
+            String(
+              resultado.sucesso ||
+              ""
+            ).toLowerCase() ===
+            "false"
+          ) {
+            reject(
+              new Error(
+                resultado.mensagem ||
+                "O Flow informou que o arquivo não foi armazenado."
+              )
+            );
+
+            return;
+          }
+
+          resolve(resultado);
+        })
+        .fail(function (
+          xhr,
+          textStatus,
+          errorThrown
+        ) {
+          var statusHttp =
+            xhr && xhr.status
+              ? xhr.status
+              : "desconhecido";
+
+          console.error(
+            "Erro ao chamar o Flow:",
+            {
+              statusHttp:
+                statusHttp,
+
+              textStatus:
+                textStatus,
+
+              errorThrown:
+                errorThrown,
+
+              responseText:
+                xhr &&
+                xhr.responseText
+                  ? xhr.responseText
+                  : ""
+            }
+          );
+
+          var mensagem =
+            "Não foi possível acionar o fluxo de anexos.";
+
+          if (
+            statusHttp === 400
+          ) {
+            mensagem =
+              "A chamada do fluxo foi rejeitada. Verifique a entrada Texto dadosJson.";
+          } else if (
+            statusHttp === 401 ||
+            statusHttp === 403
+          ) {
+            mensagem =
+              "Você não possui permissão para executar o fluxo de anexos.";
+          } else if (
+            statusHttp === 404
+          ) {
+            mensagem =
+              "O fluxo de anexos não foi encontrado.";
+          } else if (
+            statusHttp === 413
+          ) {
+            mensagem =
+              "O conteúdo enviado ultrapassou o limite aceito pela chamada.";
+          }
+
+          reject(
+            new Error(
+              mensagem +
+              " Código HTTP: " +
+              statusHttp +
+              "."
+            )
+          );
+        });
+      }
+    );
+  }
+
+  function abrirModalSucesso() {
+    abrirCloudModal(
+      byId(
+        "modalUploadFlowSucesso"
+      )
+    );
+  }
+
+  function fecharModalSucesso() {
+    fecharCloudModal(
+      byId(
+        "modalUploadFlowSucesso"
+      )
+    );
+  }
+
+  function avisarPaginaPai() {
+    var payload = {
+  type:
+    "ANEXO_PRELIMINAR_SALVO",
+
+  tipo:
+    "ANEXO_PRELIMINAR_SALVO",
+    
+      analisePreliminarId:
+        DOCUMENTO_ID,
+
+      documentId:
+        DOCUMENTO_ID,
+
+      solicitacaoId:
+        SOLICITACAO_ID,
+
+      quantidadeEnviada:
+        arquivosSelecionados.length
+    };
+
+    if (
+      window.parent &&
+      window.parent !== window
+    ) {
+      window.parent.postMessage(
+        payload,
+        window.location.origin
+      );
+
+      return;
+    }
+
+    window.setTimeout(
+      function () {
+        window.location.reload();
+      },
+      8000
+    );
+  }
+
+  async function enviarArquivos() {
+    if (envioEmAndamento) {
+      return;
+    }
+
+    var arquivosPendentes =
+      arquivosSelecionados.filter(
+        function (item) {
+          return (
+            item.status !==
+            "sucesso"
+          );
+        }
+      );
+
+    if (
+      arquivosPendentes.length ===
+      0
+    ) {
+      return;
+    }
+
+    var dadosFaltando = [];
+
+    if (!DOCUMENTO_ID) {
+      dadosFaltando.push(
+        "ID da análise preliminar"
+      );
+    }
+
+    if (!SOLICITACAO_ID) {
+      dadosFaltando.push(
+        "ID interno da solicitação"
+      );
+    }
+
+    if (!NOME_UNIDADE) {
+      dadosFaltando.push(
+        "nome da unidade"
+      );
+    }
+
+    if (!ID_SOLICITACOES) {
+      dadosFaltando.push(
+        "número da solicitação"
+      );
+    }
+
+    if (!FASE) {
+      dadosFaltando.push(
+        "fase"
+      );
+    }
+
+    if (
+      dadosFaltando.length > 0
+    ) {
+      mostrarMensagem(
+        "Não foi possível identificar: " +
+        dadosFaltando.join(", ") +
+        ". Atualize a página e tente novamente.",
+        "erro"
+      );
+
+      return;
+    }
+
+    envioEmAndamento = true;
+    limparMensagem();
+
+    var btnEnviar =
+      byId(
+        "btnEnviarArquivosFlow"
+      );
+
+    var btnCarregar =
+      byId(
+        "btnCarregarArquivosFlow"
+      );
+
+    if (btnEnviar) {
+      btnEnviar.disabled = true;
+
+      btnEnviar.textContent =
+        "ENVIANDO ANEXOS...";
+    }
+
+    if (btnCarregar) {
+      btnCarregar.disabled =
+        true;
+    }
+
+    renderizarPreview();
+
+    var quantidadeErros = 0;
+
+    for (
+      var indice = 0;
+      indice <
+        arquivosSelecionados.length;
+      indice++
+    ) {
+      var itemArquivo =
+        arquivosSelecionados[
+          indice
+        ];
+
+      if (
+        itemArquivo.status ===
+        "sucesso"
+      ) {
+        continue;
+      }
+
+      itemArquivo.status =
+        "enviando";
+
+      itemArquivo.erro = "";
+
+      renderizarPreview();
+
+      try {
+        var base64 =
+          await arquivoParaBase64(
+            itemArquivo.file
+          );
+
+        var payload = {
+          documentId:
+            DOCUMENTO_ID,
+
+          cloud_solicitacoesid:
+            SOLICITACAO_ID,
+
+          DIRETORIO:
+            DIRETORIO,
+
+          tabelaOrigem:
+            TABELA_ORIGEM,
+
+          nomeArquivo:
+            itemArquivo.file.name,
+
+          tipoMime:
+            itemArquivo.file.type ||
+            "application/octet-stream",
+
+          conteudoBase64:
+            base64,
+
+          descricao:
+            "Anexo da análise preliminar enviado pelo Power Pages"
+        };
+
+        var respostaFlow =
+          await chamarFlowUpload(
+            payload
+          );
+
+        itemArquivo.status =
+          "sucesso";
+
+        itemArquivo.annotationId =
+          respostaFlow.annotationId ||
+          "";
+
+      } catch (
+        erroArquivo
+      ) {
+        quantidadeErros++;
+
+        itemArquivo.status =
+          "erro";
+
+        itemArquivo.erro =
+          erroArquivo.message ||
+          "Erro ao enviar arquivo.";
+      }
+
+      renderizarPreview();
+    }
+
+    envioEmAndamento = false;
+
+    if (btnEnviar) {
+      btnEnviar.textContent =
+        quantidadeErros > 0
+          ? "REENVIAR PENDENTES"
+          : "ENVIAR ANEXOS";
+    }
+
+    if (btnCarregar) {
+      btnCarregar.disabled =
+        false;
+    }
+
+    renderizarPreview();
+
+    if (
+      quantidadeErros > 0
+    ) {
+      mostrarMensagem(
+        quantidadeErros +
+        " arquivo(s) não foram enviados. Corrija o problema e clique em REENVIAR PENDENTES.",
+        "erro"
+      );
+
+      return;
+    }
+
+    var todosConcluidos =
+      arquivosSelecionados.every(
+        function (item) {
+          return (
+            item.status ===
+            "sucesso"
+          );
+        }
+      );
+
+    if (todosConcluidos) {
+      abrirModalSucesso();
+    }
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+      var input =
+        byId(
+          "inputArquivosFlow"
+        );
+
+      var btnCarregar =
+        byId(
+          "btnCarregarArquivosFlow"
+        );
+
+      var btnEnviar =
+        byId(
+          "btnEnviarArquivosFlow"
+        );
+
+      var btnOk =
+        byId(
+          "btnOkUploadFlowSucesso"
+        );
+
+      if (
+        btnCarregar &&
+        input
+      ) {
+        btnCarregar.addEventListener(
+          "click",
+          function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (
+              envioEmAndamento
+            ) {
+              return;
+            }
+
+            input.click();
+          }
+        );
+      }
+
+      if (input) {
+        input.addEventListener(
+          "change",
+          function () {
+            adicionarArquivos(
+              input.files
+            );
+
+            input.value = "";
+          }
+        );
+      }
+
+      if (btnEnviar) {
+        btnEnviar.addEventListener(
+          "click",
+          function () {
+            enviarArquivos();
+          }
+        );
+      }
+
+      if (btnOk) {
+        btnOk.addEventListener(
+          "click",
+          function () {
+            fecharModalSucesso();
+            avisarPaginaPai();
+          }
+        );
+      }
+
+      renderizarPreview();
+    }
+  );
+
+})();
+</script>
+ 
+<div class="row sectionBlockLayout text-start" style="display: flex; flex-wrap: wrap; min-height: auto; margin: 0px; padding: 0px; max-width: none; width: 100%;">
+  <div class="container" style="padding: 0px; display: flex; flex-wrap: wrap; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; max-width: none; width: 100%;"><div class="col-lg-12 columnBlockLayout" style="flex-grow: 1; display: flex; flex-direction: column; min-width: 250px; margin: 0px; padding: 0px; max-width: none; width: 100%;"></div></div>
+</div>

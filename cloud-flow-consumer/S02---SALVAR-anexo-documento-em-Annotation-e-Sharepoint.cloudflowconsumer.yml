@@ -1,0 +1,8 @@
+adx_CloudFlowConsumer_adx_webrole:
+- 1e16f3b3-b319-4d15-a71e-bd149be9381d
+adx_cloudflowconsumerid: ff283215-897d-f111-ab0f-002248de86ec
+adx_flowapiurl: /_api/cloudflow/v1.0/trigger/39c151fb-887d-f111-ab0f-002248de86ec
+adx_flowtriggerurl: ''
+adx_metadata: ''
+adx_name: S02 - SALVAR anexo documento em Annotation e Sharepoint
+adx_processid: 39c151fb-887d-f111-ab0f-002248de86ec

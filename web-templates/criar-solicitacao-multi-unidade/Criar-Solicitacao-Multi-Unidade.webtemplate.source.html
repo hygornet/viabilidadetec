@@ -1,0 +1,27 @@
+{% comment %}
+  As paginas de entrada das unidades sao filhas da pagina Criar Solicitacao.
+  Usar o objeto pai do sitemap evita consultar adx_webpage via entities, consulta
+  que pode ser bloqueada pelas permissoes de tabela e retornar vazia no portal.
+{% endcomment %}
+{% assign shared_create_page = page.parent %}
+{% if shared_create_page == nil %}
+  {% assign shared_create_page = sitemap.root %}
+{% endif %}
+
+<div id="mainContent" class="wrapper-body" role="main">
+  <div class="page-copy">
+    {% editable shared_create_page 'adx_copy' type: 'html', title: 'Criar Solicitação', escape: false, liquid: true %}
+  </div>
+</div>
+
+{% if shared_create_page.adx_customcss != blank %}
+<style>
+{{ shared_create_page.adx_customcss }}
+</style>
+{% endif %}
+
+{% if shared_create_page.adx_customjavascript != blank %}
+<script>
+{{ shared_create_page.adx_customjavascript }}
+</script>
+{% endif %}

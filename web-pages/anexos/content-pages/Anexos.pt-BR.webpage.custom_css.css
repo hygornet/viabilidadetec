@@ -1,0 +1,707 @@
+.historico-card{
+  width:100%;
+  margin-top:28px;
+  background:rgba(255,255,255,.96);
+  border-radius:22px;
+  box-shadow:0 10px 28px rgba(0,0,0,.08);
+  overflow:hidden;
+}
+
+.historico-card-head{
+  padding:22px 24px 10px 24px;
+}
+
+.historico-card-title{
+  margin:0;
+  font-size:22px;
+  font-weight:800;
+  color:#1536b3;
+  line-height:1.3;
+}
+
+.historico-card-body{
+  padding:10px 24px 24px 24px;
+}
+
+.historico-table-wrap{
+  width:100%;
+  overflow-x:auto;
+  border-radius:16px;
+  border:1px solid #dbe4ff;
+  background:#fff;
+}
+
+.historico-table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:1100px;
+  font-size:14px;
+}
+
+.historico-table thead th{
+  background:#1f3fbf;
+  color:#fff;
+  padding:14px 12px;
+  text-align:center;
+  font-weight:700;
+  white-space:nowrap;
+}
+
+.historico-table tbody td{
+  padding:14px 12px;
+  border-bottom:1px solid #e5e7eb;
+  text-align:center;
+  vertical-align:middle;
+  color:#1f2937;
+  background:#fff;
+}
+
+.historico-table tbody tr:hover td{
+  background:#f8fbff;
+}
+
+.historico-col-motivo{
+  text-align:left !important;
+  min-width:280px;
+  white-space:normal;
+  line-height:1.5;
+}
+
+.historico-vazio{
+  padding:18px;
+  text-align:center;
+  color:#64748b;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+}
+.custom-refresh-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin: 8px 0 24px 0;
+}
+
+.item-anexo-carregando {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fbff;
+  border: 1px dashed #17e3cb;
+  margin-top: 10px;
+  animation: pulseUpload 1.2s infinite ease-in-out;
+}
+
+.item-anexo-carregando .spinner-upload {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #0027bd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.item-anexo-carregando .texto-upload {
+  font-weight: 800;
+  color: #0027bd;
+}
+
+.item-anexo-carregando .subtexto-upload {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+@keyframes pulseUpload {
+  0% { opacity: .65; }
+  50% { opacity: 1; }
+  100% { opacity: .65; }
+}
+
+
+  header,
+  footer,
+  nav,
+  .navbar,
+  .navbar-static-top,
+  .page-header,
+  .breadcrumb,
+  .footer,
+  .site-footer,
+  .siteHeader,
+  .siteFooter,
+  #header,
+  #footer,
+  #navbar,
+  #mainContent > .row:first-child {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body,
+  html {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  main,
+  #mainContent,
+  .container,
+  .row,
+  .sectionBlockLayout,
+  .columnBlockLayout,
+  .col-lg-12 {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+
+  #custom-modern-preform .columnBlockLayout {
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+
+/* Corrige largura do item da lista de anexos */
+.item-anexo-existente {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  justify-content: space-between !important;
+}
+
+.item-anexo-info {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.item-anexo-textos {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.item-anexo-link,
+.item-anexo-nome {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.item-anexo-acoes {
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+}
+
+@media (max-width: 768px) {
+  .item-anexo-existente {
+    width: 100% !important;
+    align-items: stretch !important;
+  }
+
+  .item-anexo-info,
+  .item-anexo-textos,
+  .item-anexo-link,
+  .item-anexo-nome {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .item-anexo-acoes {
+    width: 100% !important;
+    margin-left: 0 !important;
+    justify-content: center !important;
+  }
+}
+
+.anexos-actions-manual {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+
+.btn-cloud-disabled,
+.btn-cloud:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+  .anexos-actions-manual {
+    justify-content: center;
+  }
+
+  #btnEnviarAnexosCustom {
+    width: 100% !important;
+  }
+}
+
+/* ==========================================
+   NOVO UPLOAD DE ANEXOS PELO POWER AUTOMATE
+   ========================================== */
+
+.upload-flow-card {
+  width: 100%;
+  margin: 20px 0;
+  padding: 20px;
+  box-sizing: border-box;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 18px;
+}
+
+.upload-flow-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.upload-flow-title {
+  margin: 0 0 7px;
+  color: #0027bd;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.upload-flow-description {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.upload-flow-count {
+  flex-shrink: 0;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: #17e3cb;
+  color: #003b49;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.upload-flow-actions-top {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 18px;
+}
+
+.upload-flow-preview {
+  display: grid;
+  gap: 12px;
+}
+
+.upload-flow-empty {
+  padding: 20px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.upload-flow-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  transition: border-color .2s ease, transform .2s ease;
+}
+
+.upload-flow-item:hover {
+  border-color: #17e3cb;
+  transform: translateY(-1px);
+}
+
+.upload-flow-file-preview {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #0027bd;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.upload-flow-file-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-flow-file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-flow-file-name {
+  color: #0027bd;
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.upload-flow-file-meta {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-flow-file-status {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.upload-flow-file-status.enviando {
+  color: #0027bd;
+}
+
+.upload-flow-file-status.sucesso {
+  color: #15803d;
+}
+
+.upload-flow-file-status.erro {
+  color: #dc2626;
+}
+
+.upload-flow-remove {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border: none;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 17px;
+  transition: transform .2s ease, background .2s ease;
+}
+
+.upload-flow-remove:hover {
+  background: #fee2e2;
+  transform: scale(1.05);
+}
+
+.upload-flow-remove:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.upload-flow-message {
+  display: none;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.upload-flow-message.erro {
+  display: block;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.upload-flow-message.info {
+  display: block;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.btn-cloud-disabled,
+.btn-cloud:disabled {
+  opacity: .55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+@media (max-width: 768px) {
+  .upload-flow-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .upload-flow-actions-top {
+    justify-content: center;
+  }
+
+  .upload-flow-item {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .upload-flow-file-info {
+    width: 100%;
+  }
+}
+
+/* =====================================================
+   ÁREA PARA CARREGAR ANEXOS
+   ===================================================== */
+
+.upload-flow-actions-top {
+  width: 100%;
+  display: flex;
+  margin: 0 0 18px 0;
+}
+
+.upload-flow-dropzone {
+  width: 100% !important;
+  min-height: 120px !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+
+  padding: 20px !important;
+
+  border: 2px dashed #cbd5e1 !important;
+  border-radius: 14px !important;
+
+  background: #f8fafc !important;
+  color: #0027bd !important;
+
+  font-family: Inter, Arial, sans-serif !important;
+  text-align: center !important;
+
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+
+  transition:
+    background-color .22s ease,
+    border-color .22s ease,
+    transform .22s ease,
+    box-shadow .22s ease !important;
+}
+
+.upload-flow-dropzone:hover:not(:disabled) {
+  background: #eff6ff !important;
+  border-color: #0027bd !important;
+
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 10px 24px rgba(0, 39, 189, .10) !important;
+}
+
+.upload-flow-dropzone:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.upload-flow-dropzone:focus-visible {
+  outline: none !important;
+
+  box-shadow:
+    0 0 0 4px rgba(0, 39, 189, .16) !important;
+}
+
+.upload-flow-dropzone:disabled {
+  opacity: .58 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.upload-flow-dropzone-icon {
+  display: block;
+
+  color: #0027bd;
+
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.upload-flow-dropzone-title {
+  display: block;
+
+  color: #0027bd;
+
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.upload-flow-dropzone-subtitle {
+  display: block;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* =====================================================
+   ITEM SENDO SALVO
+   ===================================================== */
+
+.upload-flow-item.is-enviando {
+  background: #f8fbff !important;
+  border-color: #93c5fd !important;
+
+  box-shadow:
+    0 8px 24px rgba(0, 39, 189, .08) !important;
+}
+
+.upload-flow-item.is-sucesso {
+  border-color: #86efac !important;
+  background: #f7fff9 !important;
+}
+
+.upload-flow-item.is-erro {
+  border-color: #fca5a5 !important;
+  background: #fffafa !important;
+}
+
+/* Caixa onde normalmente aparece PDF, JPG etc. */
+.upload-flow-file-preview.is-loading {
+  background: #eff6ff !important;
+  color: #0027bd !important;
+}
+
+/* Spinner propriamente dito */
+.upload-flow-spinner {
+  width: 24px;
+  height: 24px;
+
+  display: inline-block;
+
+  border: 3px solid #bfdbfe;
+  border-top-color: #0027bd;
+  border-right-color: #17e3cb;
+
+  border-radius: 50%;
+
+  animation: uploadFlowSpinner .75s linear infinite;
+}
+
+@keyframes uploadFlowSpinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Texto do item que está sendo salvo */
+.upload-flow-file-status.enviando {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: #0027bd !important;
+
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* Efeito leve no texto */
+.upload-flow-file-status.enviando {
+  animation: uploadFlowTextoPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes uploadFlowTextoPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .58;
+  }
+}
+/* =====================================================
+   AÇÕES DE ANEXOS
+   ===================================================== */
+
+.custom-form-actions-anexos {
+  width: 100%;
+
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.custom-form-actions-anexos .btn-cloud {
+  min-height: 52px !important;
+  height: auto !important;
+  margin: 0 !important;
+}
+
+/* Botão limpar */
+.btn-limpar-anexos {
+  background: #ffffff !important;
+  color: #dc2626 !important;
+
+  border: 2px solid #dc2626 !important;
+  border-radius: 8px !important;
+}
+
+.btn-limpar-anexos:hover:not(:disabled) {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+
+  box-shadow:
+    0 4px 12px rgba(220, 38, 38, .25) !important;
+}
+
+.btn-limpar-anexos:disabled {
+  opacity: .58 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+  .custom-form-actions-anexos {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .custom-form-actions-anexos .btn-cloud {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}

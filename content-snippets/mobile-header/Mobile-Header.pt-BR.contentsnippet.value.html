@@ -1,0 +1,234 @@
+{% assign logo_default = snippets['Logo URL'] %}
+{% assign logo_alt = snippets['Logo alt text'] | default: 'Logo Aegea' %}
+
+<a href="/" class="aegea-logo-link" data-aegea-unit-link="true">
+  <img
+    id="aegeaHeaderLogo"
+    src="{{ logo_default }}"
+    alt="{{ logo_alt }}"
+    class="aegea-logo-img"
+    data-default-logo="{{ logo_default }}"
+    data-default-alt="{{ logo_alt }}"
+    style="opacity: 0; transition: opacity 0.3s ease-in-out;"
+  >
+</a>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "aegea_unidade";
+  var UNIT_ROUTES = {
+    corsan: {
+      route: "/corsan/",
+      logo: "/corsan-centralized.png",
+      name: "CORSAN",
+      primary: "#164194",
+      secondary: "#17e3cb"
+    },
+    aguasdopara: {
+      route: "/aguasdopara/",
+      logo: "/centro_para.png",
+      name: "Águas do Pará",
+      primary: "#0027bd",
+      secondary: "#17e3cb"
+    },
+    guariroba: {
+      route: "/aguasdeguariroba/",
+      logo: "/centro_guariroba.png",
+      name: "Águas de Guariroba",
+      primary: "#0027bd",
+      secondary: "#17e3cb"
+    },
+    manaus: {
+      route: "/aguasdemanaus/",
+      logo: "/centro_manaus.png",
+      name: "Águas de Manaus",
+      primary: "#0027bd",
+      secondary: "#17e3cb"
+    },
+    prolagos: {
+      route: "/prolagos/",
+      logo: "/centro_prolagos.png",
+      name: "Prolagos",
+      primary: "#0027bd",
+      secondary: "#17e3cb"
+    }
+  };
+
+  function normalizePath(value) {
+    var path = value || "/";
+
+    try {
+      path = new URL(path, window.location.origin).pathname || "/";
+    } catch (e) {
+      path = String(path).split("?")[0].split("#")[0] || "/";
+    }
+
+    path = path.toLowerCase().replace(/\/+$/, "");
+    return path || "/";
+  }
+
+  function getStoredUnit() {
+    try {
+      var value = sessionStorage.getItem(STORAGE_KEY);
+      return UNIT_ROUTES[value] ? value : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function saveUnit(value) {
+    if (!UNIT_ROUTES[value]) return;
+
+    try {
+      sessionStorage.setItem(STORAGE_KEY, value);
+    } catch (e) {
+      console.warn("Não foi possível guardar o contexto da unidade nesta sessão.", e);
+    }
+  }
+
+  function detectUnitFromPath() {
+    var candidatePaths = [normalizePath(window.location.pathname)];
+    var detected = "";
+
+    try {
+      var query = new URLSearchParams(window.location.search);
+      query.forEach(function (value, key) {
+        var normalizedKey = String(key).toLowerCase();
+        if (normalizedKey === "returnurl" || normalizedKey === "redirecturl") {
+          candidatePaths.push(normalizePath(value));
+        }
+      });
+    } catch (e) {}
+
+    Object.keys(UNIT_ROUTES).some(function (key) {
+      var unitPath = normalizePath(UNIT_ROUTES[key].route);
+      var matched = candidatePaths.some(function (candidatePath) {
+        return candidatePath === unitPath || candidatePath.indexOf(unitPath + "/") === 0;
+      });
+
+      if (matched) {
+        detected = key;
+        return true;
+      }
+
+      return false;
+    });
+
+    return detected;
+  }
+
+  function applyUnitTheme(data, unitKey) {
+    var root = document.documentElement;
+
+    root.style.setProperty("--aegea-unit-primary", data.primary);
+    root.style.setProperty("--aegea-unit-secondary", data.secondary);
+    root.style.setProperty("--brand-color", data.primary);
+    root.style.setProperty("--secondary-color", data.secondary);
+    root.style.setProperty("--portalThemeColor1", data.primary);
+    root.style.setProperty("--portalThemeColor4", data.secondary);
+    root.setAttribute("data-aegea-unidade", unitKey);
+
+    if (!document.getElementById("aegeaUnitTheme")) {
+      var style = document.createElement("style");
+      style.id = "aegeaUnitTheme";
+      style.textContent =
+        ".aegea-top-strip{background:var(--aegea-unit-secondary)!important;}" +
+        ".aegea-main-link{color:var(--aegea-unit-primary)!important;}" +
+        ".aegea-main-link:hover,.aegea-main-link:focus,.aegea-main-link.is-active," +
+        ".aegea-main-link[aria-current='page'],.aegea-main-menu>li.is-active-parent>.aegea-main-link" +
+        "{color:var(--aegea-unit-secondary)!important;}" +
+        ".aegea-main-link::after{background:var(--aegea-unit-secondary)!important;}";
+      document.head.appendChild(style);
+    }
+  }
+
+  function applyUnitIdentity() {
+    try {
+      var detectedUnit = detectUnitFromPath();
+      if (detectedUnit) saveUnit(detectedUnit);
+
+      var currentUnit = detectedUnit || getStoredUnit();
+      var data = UNIT_ROUTES[currentUnit];
+      var logoImg = document.getElementById("aegeaHeaderLogo");
+      var logoLink = document.querySelector(".aegea-logo-link");
+      var centerImage = document.getElementById("midImageUnidade");
+
+      if (data) {
+        applyUnitTheme(data, currentUnit);
+
+        if (logoImg) {
+          logoImg.src = data.logo;
+          logoImg.alt = data.name;
+          logoImg.className = "aegea-logo-img";
+          if (currentUnit === "corsan") logoImg.classList.add("aegea-logo-corsan");
+        }
+
+        if (logoLink) {
+          logoLink.href = data.route;
+          logoLink.setAttribute("aria-label", "Ir para Criar Solicitação - " + data.name);
+        }
+
+        if (centerImage) {
+          centerImage.src = data.logo;
+          centerImage.alt = data.name;
+        }
+
+        if (normalizePath(window.location.pathname) === "/") {
+          window.location.replace(data.route);
+          return;
+        }
+      } else {
+        if (logoImg) {
+          logoImg.src = logoImg.getAttribute("data-default-logo") || "{{ logo_default }}";
+          logoImg.alt = logoImg.getAttribute("data-default-alt") || "Logo Aegea";
+          logoImg.className = "aegea-logo-img";
+        }
+
+        if (logoLink) logoLink.href = "/";
+      }
+
+      if (logoImg) logoImg.style.opacity = "1";
+    } catch (error) {
+      console.error("Erro ao carregar a identidade da unidade:", error);
+      var backupLogo = document.getElementById("aegeaHeaderLogo");
+      if (backupLogo) backupLogo.style.opacity = "1";
+    }
+  }
+
+  window.AegeaUnitContext = {
+    storageKey: STORAGE_KEY,
+    units: UNIT_ROUTES,
+    getCurrent: getStoredUnit,
+    normalizePath: normalizePath
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", applyUnitIdentity);
+  } else {
+    applyUnitIdentity();
+  }
+
+  document.addEventListener("click", function (event) {
+    var clickedLink = event.target.closest ? event.target.closest("a") : null;
+    if (!clickedLink) return;
+
+    var label = (clickedLink.textContent || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+
+    if (label !== "CRIAR SOLICITACAO") return;
+
+    var currentUnit = getStoredUnit();
+    var data = UNIT_ROUTES[currentUnit];
+    if (!data) return;
+
+    event.preventDefault();
+    window.location.assign(data.route);
+  });
+})();
+</script>

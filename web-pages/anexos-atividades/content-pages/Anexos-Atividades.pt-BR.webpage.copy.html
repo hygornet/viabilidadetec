@@ -1,0 +1,1903 @@
+{% assign atividadeId = request.params["id"] | default: "" | strip %}
+
+{% assign solicitacaoId = "" %}
+{% assign idSolicitacoes = "" %}
+{% assign nomeUnidade = "" %}
+{% assign idAtividade = "" %}
+{% assign tituloAtividade = "Atividade" %}
+{% assign isCliente = false %}
+
+{% if atividadeId != "" %}
+  {% fetchxml atividadeAtual %}
+  <fetch top="1">
+    <entity name="cloud_atividades">
+      <attribute name="cloud_atividadesid" />
+      <attribute name="cloud_id_atividade" />
+      <attribute name="cloud_titulo_atividade" />
+      <attribute name="cloud_is_cliente" />
+      <attribute name="cloud_descricao_atividade" />
+      <attribute name="cloud_fk_solicitacoes" />
+
+      <filter type="and">
+        <condition attribute="cloud_atividadesid" operator="eq" value="{{ atividadeId }}" />
+        <condition attribute="createdon" operator="le" value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}' />
+      </filter>
+
+      <link-entity
+        name="cloud_solicitacoes"
+        from="cloud_solicitacoesid"
+        to="cloud_fk_solicitacoes"
+        alias="sol"
+        link-type="inner">
+
+        <attribute name="cloud_solicitacoesid" />
+        <attribute name="cloud_id_solicitacoes" />
+        <attribute name="cloud_fk_municipios" />
+
+        <link-entity
+          name="cloud_municipios"
+          from="cloud_municipiosid"
+          to="cloud_fk_municipios"
+          alias="municipio"
+          link-type="outer">
+
+          <link-entity
+            name="cloud_regionais"
+            from="cloud_regionaisid"
+            to="cloud_fk_regionais"
+            alias="regional"
+            link-type="outer">
+
+            <link-entity
+              name="cloud_unidades"
+              from="cloud_unidadesid"
+              to="cloud_fk_unidades"
+              alias="unidade"
+              link-type="outer">
+
+              <attribute name="cloud_nome_unidade" />
+            </link-entity>
+          </link-entity>
+        </link-entity>
+      </link-entity>
+    </entity>
+  </fetch>
+  {% endfetchxml %}
+
+  {% assign atividade = atividadeAtual.results.entities | first %}
+
+  {% if atividade %}
+    {% assign tituloAtividade = atividade.cloud_titulo_atividade | default: "Atividade" | strip %}
+    {% assign idAtividade = atividade.cloud_id_atividade | default: atividadeId | strip %}
+    {% assign solicitacaoId = atividade["sol.cloud_solicitacoesid"] | default: "" %}
+    {% assign idSolicitacoes = atividade["sol.cloud_id_solicitacoes"] | default: "" | strip %}
+    {% assign nomeUnidade = atividade["unidade.cloud_nome_unidade"] | default: "" | strip %}
+
+    {% if atividade.cloud_is_cliente == true or atividade.cloud_is_cliente == 1 %}
+      {% assign isCliente = true %}
+    {% endif %}
+  {% endif %}
+{% endif %}
+
+{% fetchxml anexosAtividade %}
+<fetch>
+  <entity name="annotation">
+    <attribute name="annotationid" />
+    <attribute name="filename" />
+    <attribute name="mimetype" />
+    <attribute name="filesize" />
+    <attribute name="createdon" />
+    <attribute name="subject" />
+
+    <filter type="and">
+      <condition attribute="objectid" operator="eq" value="{{ atividadeId }}" />
+      <condition attribute="isdocument" operator="eq" value="1" />
+      <condition attribute="createdon" operator="le" value='{{ "today" | date: "yyyy-MM-dd HH:mm:ss" }}' />
+    </filter>
+
+    <order attribute="createdon" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign qtdAnexos = anexosAtividade.results.entities.size | default: 0 %}
+{% assign vagasRestantes = 10 | minus: qtdAnexos %}
+
+<style>
+  :root {
+    --brand-color: #0027bd;
+    --secondary-color: #17e3cb;
+    --text-dark: #1f2937;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  header,
+  footer,
+  nav,
+  .navbar,
+  .navbar-static-top,
+  .page-header,
+  .breadcrumb,
+  .footer,
+  .site-footer,
+  .siteHeader,
+  .siteFooter,
+  #header,
+  #footer,
+  #navbar,
+  #mainContent > .row:first-child {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  main,
+  #mainContent,
+  .container,
+  .row,
+  .sectionBlockLayout,
+  .columnBlockLayout,
+  .col-lg-12 {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .pagina-anexos-atividade {
+    width: 100%;
+    padding: 24px !important;
+    font-family: Inter, Arial, sans-serif;
+  }
+
+  #custom-modern-preform {
+    width: 100%;
+    padding: 28px !important;
+    background: rgba(255, 255, 255, .96) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .08);
+    overflow: visible !important;
+  }
+
+  .titulo-anexo-topo {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 22px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .titulo-anexo-textos {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .titulo-anexo-linha1 {
+    margin: 0 0 8px 0 !important;
+    color: #0027bd;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .titulo-anexo-linha2 {
+    margin: 0 !important;
+    color: #1f2937;
+    font-size: 23px;
+    font-weight: 700;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .alerta-somente-leitura {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px;
+    margin: 0 0 20px 0;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255, 248, 235, .96), rgba(255, 255, 255, .98));
+    border: 1px solid rgba(245, 158, 11, .35);
+    box-shadow: 0 10px 24px rgba(245, 158, 11, .12);
+  }
+
+  .alerta-somente-leitura-icon {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: rgba(245, 158, 11, .14);
+    font-size: 24px;
+  }
+
+  .alerta-somente-leitura-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .alerta-somente-leitura-titulo {
+    color: #92400e;
+    font-size: 16px;
+    font-weight: 900;
+  }
+
+  .alerta-somente-leitura-descricao {
+    color: #78350f;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .btn-cloud {
+    width: auto !important;
+    min-width: 180px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 14px 32px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    background: #0027bd !important;
+    color: #fff !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .5px !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    transition: all .3s ease !important;
+  }
+
+  .btn-cloud:hover:not(:disabled) {
+    background: #17e3cb !important;
+    color: #003b49 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(23, 227, 203, .4) !important;
+  }
+
+  .btn-cloud:disabled,
+  .btn-cloud-disabled {
+    opacity: .52 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .btn-cloud-outline {
+    background: #fff !important;
+    color: #0027bd !important;
+    border: 2px solid #0027bd !important;
+  }
+
+  .card-anexos-existentes,
+  .upload-flow-card {
+    width: 100%;
+    margin: 18px 0 24px 0;
+    padding: 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #f8fafc;
+  }
+
+  .card-anexos-header,
+  .upload-flow-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .card-anexos-title,
+  .upload-flow-title {
+    margin: 0;
+    color: #0027bd;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  .upload-flow-description {
+    max-width: 760px;
+    margin: 8px 0 0 0;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.55;
+  }
+
+  .card-anexos-count,
+  .upload-flow-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #17e3cb;
+    color: #003b49;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .lista-anexos-existentes,
+  .upload-flow-preview {
+    display: grid;
+    gap: 14px;
+  }
+
+  .item-anexo-existente,
+  .upload-flow-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .05);
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+  }
+
+  .item-anexo-existente:hover,
+  .upload-flow-item:hover {
+    transform: translateY(-3px);
+    border-color: #17e3cb;
+    background: #fbfffe;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, .1);
+  }
+
+  .item-anexo-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .item-anexo-icon,
+  .upload-flow-file-preview {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #0027bd;
+    font-size: 15px;
+    font-weight: 900;
+  }
+
+  .upload-flow-file-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .item-anexo-textos,
+  .upload-flow-file-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .item-anexo-nome,
+  .upload-flow-file-name {
+    color: #0027bd;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .item-anexo-nome {
+    text-decoration: none !important;
+  }
+
+  .item-anexo-nome:hover {
+    color: #159e92;
+    text-decoration: underline !important;
+  }
+
+  .upload-flow-file-meta {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+
+  .item-anexo-acoes {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-excluir-anexo,
+  .upload-flow-remove {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: transform .2s ease, background .2s ease;
+    position: relative;
+  }
+
+  .btn-excluir-anexo,
+  .upload-flow-remove {
+    border: 1px solid #fecaca;
+    background: #fff1f2;
+    color: #dc2626;
+  }
+
+  .btn-excluir-anexo:hover:not(:disabled),
+  .upload-flow-remove:hover:not(:disabled) {
+    background: #fee2e2;
+    transform: scale(1.06);
+  }
+
+  .upload-flow-remove:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+
+  .btn-excluir-anexo::after,
+  .upload-flow-remove::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .82);
+    color: #17e3cb;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .2s ease, visibility .2s ease;
+    z-index: 9999;
+  }
+
+  .btn-excluir-anexo:hover::after,
+  .btn-excluir-anexo:focus-visible::after,
+  .upload-flow-remove:hover::after,
+  .upload-flow-remove:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .anexos-vazio,
+  .upload-flow-empty {
+    padding: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fff;
+    color: #64748b;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .upload-flow-actions-top {
+    margin-bottom: 16px;
+  }
+
+  .upload-flow-dropzone {
+    width: 100%;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    border: 2px dashed #93c5fd;
+    border-radius: 16px;
+    background: transparent;
+    color: #0027bd;
+    cursor: pointer;
+    transition: border-color .22s ease, background .22s ease, transform .22s ease;
+  }
+
+  .upload-flow-dropzone:hover:not(:disabled) {
+    border-color: #17e3cb;
+    background: rgba(23, 227, 203, .06);
+    transform: translateY(-2px);
+  }
+
+  .upload-flow-dropzone:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .upload-flow-dropzone-icon {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    background: transparent;
+    font-size: 30px;
+    font-weight: 800;
+  }
+
+  .upload-flow-dropzone-title {
+    font-size: 17px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .upload-flow-message {
+    display: none;
+    margin: 0 0 16px 0;
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  .upload-flow-message.info,
+  .upload-flow-message.erro {
+    display: block;
+  }
+
+  .upload-flow-message.info {
+    border: 1px solid #93c5fd;
+    background: #eff6ff;
+    color: #1e40af;
+  }
+
+  .upload-flow-message.erro {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .upload-flow-file-status {
+    margin-top: 7px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+
+  .upload-flow-file-status.enviando {
+    color: #0027bd;
+  }
+
+  .upload-flow-file-status.sucesso {
+    color: #15803d;
+  }
+
+  .upload-flow-file-status.erro {
+    color: #dc2626;
+  }
+
+  .upload-flow-item.is-enviando {
+    border-color: #93c5fd;
+    background: #f8fbff;
+  }
+
+  .upload-flow-item.is-enviando::after {
+    content: "";
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    border: 3px solid #dbeafe;
+    border-top-color: #17e3cb;
+    border-radius: 50%;
+    animation: uploadDocSpin .8s linear infinite;
+  }
+
+  .upload-flow-item.is-sucesso {
+    border-color: #86efac;
+    background: #f0fdf4;
+  }
+
+  .upload-flow-item.is-erro {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+
+  .custom-form-actions-anexos {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+  }
+
+  .item-anexo-existente.excluindo {
+    pointer-events: none;
+    opacity: .72;
+    border-color: #93c5fd;
+    background: #f8fafc;
+  }
+
+  .item-anexo-status-excluindo {
+    width: 100%;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #0027bd;
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .item-anexo-status-excluindo::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    border: 3px solid #dbeafe;
+    border-top-color: #17e3cb;
+    border-radius: 50%;
+    animation: uploadDocSpin .8s linear infinite;
+  }
+
+  @keyframes uploadDocSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  .cloud-modal-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    display: none;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    box-sizing: border-box !important;
+    background: rgba(0, 0, 0, .55) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    transform: none !important;
+    z-index: 2147483647 !important;
+  }
+
+  html.cloud-modal-aberto,
+  body.cloud-modal-aberto {
+    overflow: hidden !important;
+  }
+
+  .cloud-modal {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    padding: 32px;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+    animation: cloudModalEntrada .18s ease-out;
+  }
+
+  .cloud-modal-header {
+    margin: 0 0 16px 0;
+    color: #0027bd;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+
+  .cloud-modal-body {
+    color: #1f2937;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .cloud-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 30px;
+  }
+
+  #modalUploadFlowSucesso .cloud-modal-footer {
+    justify-content: center;
+  }
+
+  @keyframes cloudModalEntrada {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @media (max-width: 768px) {
+    .pagina-anexos-atividade {
+      padding: 12px !important;
+    }
+
+    #custom-modern-preform {
+      padding: 20px 16px !important;
+    }
+
+    .titulo-anexo-topo {
+      align-items: center;
+    }
+
+    .titulo-anexo-linha1 {
+      font-size: 25px;
+    }
+
+    .titulo-anexo-linha2 {
+      font-size: 19px;
+    }
+
+    .btn-ajuda-documento {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      font-size: 23px;
+    }
+
+    .card-anexos-header,
+    .upload-flow-header {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .item-anexo-existente,
+    .upload-flow-item {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .item-anexo-info {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .item-anexo-acoes {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .custom-form-actions-anexos {
+      justify-content: center;
+    }
+
+    .custom-form-actions-anexos .btn-cloud {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+
+    .cloud-modal {
+      width: 92%;
+      padding: 24px 18px;
+    }
+
+    .cloud-modal-header,
+    .cloud-modal-body {
+      text-align: center;
+    }
+
+    .cloud-modal-footer {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+
+    .cloud-modal-footer .btn-cloud {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+  }
+
+  #MessagePanel,
+  #MessagePanel.message,
+  #MessagePanel.alert,
+  #MessagePanel.alert-success,
+  #MessagePanel.alert-info,
+  div[id="MessagePanel"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    border: none !important;
+  }
+</style>
+
+<div class="pagina-anexos-atividade">
+  <div id="custom-modern-preform">
+    <div class="titulo-anexo-topo">
+      <div class="titulo-anexo-textos">
+        <h2 class="page-title titulo-anexo-linha1">📂 Anexos da atividade</h2>
+        <h3 class="page-title titulo-anexo-linha2">{{ tituloAtividade }}</h3>
+      </div>
+
+    </div>
+
+    {% unless isCliente %}
+      <div class="alerta-somente-leitura">
+        <div class="alerta-somente-leitura-icon">🔒</div>
+        <div class="alerta-somente-leitura-textos">
+          <div class="alerta-somente-leitura-titulo">Esta página é somente leitura!</div>
+          <div class="alerta-somente-leitura-descricao">
+            Você pode baixar os arquivos, mas não pode incluir ou excluir anexos enviados pela UNIDADE.
+          </div>
+        </div>
+      </div>
+    {% endunless %}
+
+    <div class="card-anexos-existentes">
+      <div class="card-anexos-header">
+        <h4 class="card-anexos-title">📎 Anexos já enviados</h4>
+        <span class="card-anexos-count">{{ qtdAnexos }} arquivo(s)</span>
+      </div>
+
+      <div class="lista-anexos-existentes">
+        {% if qtdAnexos > 0 %}
+          {% for anexo in anexosAtividade.results.entities %}
+            {% assign nomeArquivo = anexo.filename | default: "Arquivo sem nome" %}
+
+            <div class="item-anexo-existente" data-annotation-id="{{ anexo.annotationid }}">
+              <div class="item-anexo-info">
+                <div class="item-anexo-icon">📄</div>
+
+                <div class="item-anexo-textos">
+                  <a
+                    class="item-anexo-nome item-anexo-link"
+                    href="/_entity/annotation/{{ anexo.annotationid }}/fileattachment"
+                    download="{{ nomeArquivo | escape }}"
+                    title="{{ nomeArquivo | escape }}">
+                    {{ nomeArquivo }}
+                  </a>
+
+                </div>
+              </div>
+
+              {% if isCliente %}
+                <div class="item-anexo-acoes">
+                  <button
+                    type="button"
+                    class="btn-excluir-anexo"
+                    data-annotation-id="{{ anexo.annotationid }}"
+                    data-filename="{{ nomeArquivo | escape }}"
+                    data-tooltip="EXCLUIR"
+                    aria-label="Excluir o anexo {{ nomeArquivo | escape }}">
+                    🗑️
+                  </button>
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="anexos-vazio">Nenhum anexo encontrado para esta atividade.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if isCliente and atividadeId != "" and qtdAnexos < 10 %}
+      <div
+        id="uploadAnexosFlow"
+        class="upload-flow-card"
+        data-max-files="{{ vagasRestantes }}"
+        data-atividade-id="{{ atividadeId | escape }}"
+        data-id-atividade="{{ idAtividade | escape }}"
+        data-solicitacao-id="{{ solicitacaoId | escape }}"
+        data-id-solicitacoes="{{ idSolicitacoes | escape }}"
+        data-nome-unidade="{{ nomeUnidade | escape }}">
+
+        <div class="upload-flow-header">
+          <div>
+            <h4 class="upload-flow-title">📤 Carregar novos anexos</h4>
+            <p class="upload-flow-description">
+              Selecione até {{ vagasRestantes }} arquivo(s). Os arquivos somente serão enviados após clicar em
+              <strong>ENVIAR ANEXOS</strong>.
+            </p>
+          </div>
+
+          <span id="contadorArquivosSelecionados" class="upload-flow-count">0 selecionado(s)</span>
+        </div>
+
+        <input type="file" id="inputArquivosFlow" multiple hidden />
+
+        <div class="upload-flow-actions-top">
+          <button
+            type="button"
+            id="btnCarregarArquivosFlow"
+            class="upload-flow-dropzone"
+            aria-label="Carregar">
+            <span class="upload-flow-dropzone-icon" aria-hidden="true">↑</span>
+            <span class="upload-flow-dropzone-title">Carregar</span>
+          </button>
+        </div>
+
+        <div id="mensagemUploadFlow" class="upload-flow-message"></div>
+
+        <div id="previewArquivosFlow" class="upload-flow-preview">
+          <div class="upload-flow-empty">Nenhum arquivo selecionado.</div>
+        </div>
+
+        <div class="custom-form-actions-anexos">
+          <button
+            type="button"
+            id="btnEnviarArquivosFlow"
+            class="btn-cloud btn-cloud-disabled"
+            disabled
+            aria-disabled="true">
+            ENVIAR ANEXOS
+          </button>
+        </div>
+      </div>
+    {% elsif isCliente and qtdAnexos >= 10 %}
+      <div class="card-anexos-existentes">
+        <div class="card-anexos-header">
+          <h4 class="card-anexos-title">Limite de anexos atingido</h4>
+        </div>
+        <p style="margin:0;color:#374151;font-weight:600;">
+          Esta atividade já possui 10 arquivos anexados. Exclua um anexo para liberar um novo envio.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="modalUploadFlowSucesso" class="cloud-modal-overlay" aria-hidden="true">
+  <div class="cloud-modal" role="dialog" aria-modal="true" aria-labelledby="tituloModalUploadFlowSucesso">
+    <div class="cloud-modal-header" id="tituloModalUploadFlowSucesso">Anexos enviados</div>
+    <div class="cloud-modal-body">Todos os anexos foram armazenados com sucesso.</div>
+    <div class="cloud-modal-footer">
+      <button id="btnOkUploadFlowSucesso" type="button" class="btn-cloud">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalExcluirAnexo" class="cloud-modal-overlay" aria-hidden="true">
+  <div class="cloud-modal" role="dialog" aria-modal="true" aria-labelledby="tituloModalExcluirAnexo">
+    <div class="cloud-modal-header" id="tituloModalExcluirAnexo">Confirmar exclusão</div>
+    <div class="cloud-modal-body">
+      Deseja excluir o anexo <strong id="nomeArquivoExcluir"></strong>?
+    </div>
+    <div class="cloud-modal-footer">
+      <button id="btnCancelarExcluirAnexo" type="button" class="btn-cloud btn-cloud-outline">CANCELAR</button>
+      <button id="btnConfirmarExcluirAnexo" type="button" class="btn-cloud">EXCLUIR</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function abrirCloudModal(modal) {
+    if (!modal) return;
+
+    document.documentElement.classList.add("cloud-modal-aberto");
+    document.body.classList.add("cloud-modal-aberto");
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+  }
+
+  function fecharCloudModal(modal) {
+    if (!modal) return;
+
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
+    document.documentElement.classList.remove("cloud-modal-aberto");
+    document.body.classList.remove("cloud-modal-aberto");
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".cloud-modal-overlay").forEach(function (modal) {
+      if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+      }
+    });
+  });
+
+  (function () {
+    "use strict";
+
+    var uploadCard = document.getElementById("uploadAnexosFlow");
+
+    if (!uploadCard) {
+      return;
+    }
+
+    var ATIVIDADE_ID = uploadCard.getAttribute("data-atividade-id") || "";
+    var ID_ATIVIDADE = uploadCard.getAttribute("data-id-atividade") || ATIVIDADE_ID;
+    var SOLICITACAO_ID = uploadCard.getAttribute("data-solicitacao-id") || "";
+    var ID_SOLICITACOES = uploadCard.getAttribute("data-id-solicitacoes") || "";
+    var NOME_UNIDADE = uploadCard.getAttribute("data-nome-unidade") || "";
+
+    var TABELA_ORIGEM = "cloud_atividades";
+    var FLOW_UPLOAD_URL = "/_api/cloudflow/v1.0/trigger/39c151fb-887d-f111-ab0f-002248de86ec";
+    var MAX_ARQUIVOS = Number(uploadCard.getAttribute("data-max-files") || "0");
+    var LIMITE_ARQUIVO_MB = 81;
+    var MAX_TAMANHO_ARQUIVO = LIMITE_ARQUIVO_MB * 1024 * 1024;
+
+    var arquivosSelecionados = [];
+    var envioEmAndamento = false;
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function limparSegmentoDiretorio(valor) {
+      return String(valor || "")
+        .replace(/[\\/:*?"<>|]/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    var DIRETORIO = [
+      "",
+      "Documentos Compartilhados",
+      limparSegmentoDiretorio(NOME_UNIDADE),
+      limparSegmentoDiretorio(ID_SOLICITACOES),
+      "OBRA",
+      "ENTRADA",
+      "ANEXOS DE ATIVIDADES",
+      limparSegmentoDiretorio(ID_ATIVIDADE),
+      ""
+    ].join("/");
+
+    console.log("📁 Diretório da atividade calculado:", {
+      nomeUnidade: NOME_UNIDADE,
+      idSolicitacao: ID_SOLICITACOES,
+      idAtividade: ID_ATIVIDADE,
+      tabelaOrigem: TABELA_ORIGEM,
+      diretorio: DIRETORIO
+    });
+
+    function gerarNomeArquivoComTimestamp(nomeOriginal) {
+      var agora = new Date();
+      var partesData = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }).formatToParts(agora);
+
+      function obterParte(tipo) {
+        var parte = partesData.find(function (item) {
+          return item.type === tipo;
+        });
+
+        return parte ? parte.value : "";
+      }
+
+      var timestamp =
+        obterParte("day") +
+        obterParte("month") +
+        obterParte("year") +
+        "_" +
+        obterParte("hour") +
+        obterParte("minute") +
+        obterParte("second");
+
+      nomeOriginal = String(nomeOriginal || "arquivo").trim();
+
+      var posicaoUltimoPonto = nomeOriginal.lastIndexOf(".");
+      var possuiExtensao =
+        posicaoUltimoPonto > 0 &&
+        posicaoUltimoPonto < nomeOriginal.length - 1;
+
+      if (!possuiExtensao) {
+        return nomeOriginal + "_" + timestamp;
+      }
+
+      return (
+        nomeOriginal.substring(0, posicaoUltimoPonto) +
+        "_" +
+        timestamp +
+        nomeOriginal.substring(posicaoUltimoPonto)
+      );
+    }
+
+    function criarChaveArquivo(file) {
+      return [file.name, file.size, file.lastModified].join("|");
+    }
+
+    function formatarTamanho(bytes) {
+      if (!bytes) return "0 bytes";
+
+      var unidades = ["bytes", "KB", "MB", "GB"];
+      var indice = Math.floor(Math.log(bytes) / Math.log(1024));
+      indice = Math.min(indice, unidades.length - 1);
+
+      var valor = bytes / Math.pow(1024, indice);
+      return valor.toFixed(indice === 0 ? 0 : 2) + " " + unidades[indice];
+    }
+
+    function mostrarMensagem(texto, tipo) {
+      var mensagem = byId("mensagemUploadFlow");
+      if (!mensagem) return;
+
+      mensagem.textContent = texto || "";
+      mensagem.className = "upload-flow-message";
+
+      if (texto) {
+        mensagem.classList.add(tipo || "info");
+      }
+    }
+
+    function criarPreviewArquivo(itemArquivo) {
+      var file = itemArquivo.file;
+      var preview = document.createElement("div");
+      preview.className = "upload-flow-file-preview";
+
+      if (file.type && file.type.toLowerCase().indexOf("image/") === 0) {
+        var imagem = document.createElement("img");
+        var objectUrl = URL.createObjectURL(file);
+
+        imagem.src = objectUrl;
+        imagem.alt = file.name;
+        imagem.onload = function () {
+          URL.revokeObjectURL(objectUrl);
+        };
+
+        preview.appendChild(imagem);
+        return preview;
+      }
+
+      var extensao = "";
+      if (file.name.indexOf(".") > -1) {
+        extensao = file.name.split(".").pop().toUpperCase();
+      }
+
+      preview.textContent = extensao && extensao.length <= 5 ? extensao : "📄";
+      return preview;
+    }
+
+    function atualizarBotaoEnviar() {
+      var btnEnviar = byId("btnEnviarArquivosFlow");
+      if (!btnEnviar) return;
+
+      var possuiPendente = arquivosSelecionados.some(function (item) {
+        return item.status !== "sucesso";
+      });
+
+      var habilitar =
+        arquivosSelecionados.length > 0 &&
+        possuiPendente &&
+        !envioEmAndamento;
+
+      btnEnviar.disabled = !habilitar;
+      btnEnviar.setAttribute("aria-disabled", habilitar ? "false" : "true");
+      btnEnviar.classList.toggle("btn-cloud-disabled", !habilitar);
+    }
+
+    function removerArquivo(chave) {
+      if (envioEmAndamento) return;
+
+      arquivosSelecionados = arquivosSelecionados.filter(function (item) {
+        return item.chave !== chave;
+      });
+
+      renderizarPreview();
+    }
+
+    function renderizarPreview() {
+      var container = byId("previewArquivosFlow");
+      var contador = byId("contadorArquivosSelecionados");
+
+      if (!container) return;
+
+      container.innerHTML = "";
+
+      if (contador) {
+        contador.textContent = arquivosSelecionados.length + " selecionado(s)";
+      }
+
+      if (arquivosSelecionados.length === 0) {
+        var vazio = document.createElement("div");
+        vazio.className = "upload-flow-empty";
+        vazio.textContent = "Nenhum arquivo selecionado.";
+        container.appendChild(vazio);
+        atualizarBotaoEnviar();
+        return;
+      }
+
+      arquivosSelecionados.forEach(function (itemArquivo) {
+        var file = itemArquivo.file;
+        var item = document.createElement("div");
+        item.className = "upload-flow-item";
+
+        if (itemArquivo.status === "enviando") item.classList.add("is-enviando");
+        if (itemArquivo.status === "sucesso") item.classList.add("is-sucesso");
+        if (itemArquivo.status === "erro") item.classList.add("is-erro");
+
+        var preview = criarPreviewArquivo(itemArquivo);
+        var info = document.createElement("div");
+        info.className = "upload-flow-file-info";
+
+        var nome = document.createElement("div");
+        nome.className = "upload-flow-file-name";
+        nome.textContent = file.name;
+
+        var meta = document.createElement("div");
+        meta.className = "upload-flow-file-meta";
+        meta.textContent =
+          formatarTamanho(file.size) +
+          " • " +
+          (file.type || "application/octet-stream");
+
+        var status = document.createElement("div");
+        status.className = "upload-flow-file-status";
+
+        if (itemArquivo.status === "enviando") {
+          status.classList.add("enviando");
+          status.textContent = "SALVANDO ANEXO...";
+        } else if (itemArquivo.status === "sucesso") {
+          status.classList.add("sucesso");
+          status.textContent = "ENVIADO COM SUCESSO";
+        } else if (itemArquivo.status === "erro") {
+          status.classList.add("erro");
+          status.textContent = itemArquivo.erro || "ERRO AO ENVIAR";
+        } else {
+          status.textContent = "AGUARDANDO ENVIO";
+        }
+
+        info.appendChild(nome);
+        info.appendChild(meta);
+        info.appendChild(status);
+
+        var remover = document.createElement("button");
+        remover.type = "button";
+        remover.className = "upload-flow-remove";
+        remover.textContent = "🗑️";
+        remover.title = "Remover arquivo da seleção";
+        remover.setAttribute("data-tooltip", "REMOVER");
+        remover.setAttribute("aria-label", "Remover " + file.name + " da seleção");
+        remover.disabled = envioEmAndamento || itemArquivo.status === "sucesso";
+        remover.addEventListener("click", function () {
+          removerArquivo(itemArquivo.chave);
+        });
+
+        item.appendChild(preview);
+        item.appendChild(info);
+        item.appendChild(remover);
+        container.appendChild(item);
+      });
+
+      atualizarBotaoEnviar();
+    }
+
+    function adicionarArquivos(fileList) {
+      mostrarMensagem("", "");
+      var mensagensErro = [];
+
+      Array.from(fileList || []).forEach(function (file) {
+        if (arquivosSelecionados.length >= MAX_ARQUIVOS) {
+          mensagensErro.push(
+            "O limite disponível de " + MAX_ARQUIVOS + " arquivo(s) foi atingido."
+          );
+          return;
+        }
+
+        if (file.size > MAX_TAMANHO_ARQUIVO) {
+          mensagensErro.push(
+            file.name + " ultrapassa o limite de " + LIMITE_ARQUIVO_MB + " MB por arquivo."
+          );
+          return;
+        }
+
+        var chave = criarChaveArquivo(file);
+        var duplicado = arquivosSelecionados.some(function (item) {
+          return item.chave === chave;
+        });
+
+        if (duplicado) {
+          mensagensErro.push(file.name + " já está na lista.");
+          return;
+        }
+
+        arquivosSelecionados.push({
+          chave: chave,
+          file: file,
+          status: "pendente",
+          erro: "",
+          annotationId: ""
+        });
+      });
+
+      if (mensagensErro.length > 0) {
+        mostrarMensagem(mensagensErro.join(" "), "erro");
+      }
+
+      renderizarPreview();
+    }
+
+    function arquivoParaBase64(file) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+
+        reader.onload = function () {
+          var resultado = String(reader.result || "");
+          var partes = resultado.split(",");
+          resolve(partes.length > 1 ? partes[1] : resultado);
+        };
+
+        reader.onerror = function () {
+          reject(new Error("Não foi possível ler o arquivo " + file.name + "."));
+        };
+
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function chamarFlowUpload(payload) {
+      return new Promise(function (resolve, reject) {
+        if (!window.shell || typeof shell.ajaxSafePost !== "function") {
+          reject(new Error("O contexto seguro do Power Pages não está disponível."));
+          return;
+        }
+
+        var dadosParaFlow = {
+          dadosJson: JSON.stringify(payload)
+        };
+
+        console.log("📤 Enviando anexo da atividade ao Flow:", {
+          url: FLOW_UPLOAD_URL,
+          documentId: payload.documentId,
+          cloud_solicitacoesid: payload.cloud_solicitacoesid,
+          DIRETORIO: payload.DIRETORIO,
+          tabelaOrigem: payload.tabelaOrigem,
+          nomeArquivo: payload.nomeArquivo,
+          tipoMime: payload.tipoMime,
+          tamanhoBase64: payload.conteudoBase64 ? payload.conteudoBase64.length : 0
+        });
+
+        shell.ajaxSafePost({
+          type: "POST",
+          url: FLOW_UPLOAD_URL,
+          data: {
+            eventData: JSON.stringify(dadosParaFlow)
+          }
+        })
+        .done(function (response) {
+          var resultado = {};
+
+          if (response) {
+            if (typeof response === "string") {
+              try {
+                resultado = JSON.parse(response);
+              } catch (erroJson) {
+                resultado = {};
+              }
+            } else {
+              resultado = response;
+            }
+          }
+
+          if (String(resultado.sucesso || "").toLowerCase() === "false") {
+            reject(new Error(
+              resultado.mensagem || "O Flow informou que o arquivo não foi armazenado."
+            ));
+            return;
+          }
+
+          resolve(resultado);
+        })
+        .fail(function (xhr, textStatus, errorThrown) {
+          var statusHttp = xhr && xhr.status ? xhr.status : "desconhecido";
+
+          console.error("❌ Erro ao chamar o Flow de anexos:", {
+            statusHttp: statusHttp,
+            textStatus: textStatus,
+            errorThrown: errorThrown,
+            responseText: xhr && xhr.responseText ? xhr.responseText : ""
+          });
+
+          var mensagem = "Não foi possível acionar o fluxo de anexos.";
+
+          if (statusHttp === 400) {
+            mensagem =
+              "A chamada do fluxo foi rejeitada. Verifique se o gatilho possui uma entrada Texto chamada dadosJson.";
+          } else if (statusHttp === 401 || statusHttp === 403) {
+            mensagem = "Você não possui permissão para executar o fluxo de anexos.";
+          } else if (statusHttp === 404) {
+            mensagem = "O fluxo de anexos não foi encontrado.";
+          } else if (statusHttp === 413) {
+            mensagem = "O conteúdo enviado ultrapassou o limite aceito pela chamada.";
+          }
+
+          reject(new Error(mensagem + " Código HTTP: " + statusHttp + "."));
+        });
+      });
+    }
+
+    function fecharModalSucessoNoDocumentoPai(modalPai, documentoPai) {
+      if (!modalPai || !documentoPai) return;
+
+      modalPai.style.display = "none";
+      modalPai.setAttribute("aria-hidden", "true");
+
+      if (documentoPai.documentElement) {
+        documentoPai.documentElement.classList.remove("cloud-modal-atividade-aberto");
+      }
+
+      if (documentoPai.body) {
+        documentoPai.body.classList.remove("cloud-modal-atividade-aberto");
+      }
+    }
+
+    function abrirModalSucessoUploadTelaInteira() {
+      var modalLocal = byId("modalUploadFlowSucesso");
+
+      try {
+        if (
+          window.parent &&
+          window.parent !== window &&
+          window.parent.document &&
+          window.parent.document.body
+        ) {
+          var documentoPai = window.parent.document;
+          var estiloPai = documentoPai.getElementById(
+            "cloudModalAtividadeEstiloPai"
+          );
+
+          if (!estiloPai) {
+            estiloPai = documentoPai.createElement("style");
+            estiloPai.id = "cloudModalAtividadeEstiloPai";
+            estiloPai.textContent =
+              "html.cloud-modal-atividade-aberto," +
+              "body.cloud-modal-atividade-aberto{" +
+                "overflow:hidden!important;" +
+              "}" +
+              ".cloud-modal-atividade-overlay-pai{" +
+                "position:fixed!important;" +
+                "top:0!important;right:0!important;bottom:0!important;left:0!important;" +
+                "width:100vw!important;height:100vh!important;" +
+                "min-width:100vw!important;min-height:100vh!important;" +
+                "margin:0!important;padding:20px!important;border:0!important;" +
+                "box-sizing:border-box!important;" +
+                "display:none;align-items:center!important;justify-content:center!important;" +
+                "background:rgba(0,0,0,.55)!important;" +
+                "overflow-x:hidden!important;overflow-y:auto!important;" +
+                "z-index:2147483647!important;" +
+              "}" +
+              ".cloud-modal-atividade-overlay-pai .cloud-modal{" +
+                "position:relative!important;width:100%!important;max-width:520px!important;" +
+                "margin:auto!important;padding:32px!important;box-sizing:border-box!important;" +
+                "border:0!important;border-radius:16px!important;background:#fff!important;" +
+                "box-shadow:0 20px 60px rgba(0,0,0,.30)!important;" +
+                "font-family:Inter,Arial,sans-serif!important;" +
+              "}" +
+              ".cloud-modal-atividade-overlay-pai .cloud-modal-header{" +
+                "margin:0 0 16px 0!important;padding:0!important;" +
+                "background:transparent!important;color:#0027bd!important;" +
+                "font-size:22px!important;font-weight:800!important;line-height:1.3!important;" +
+              "}" +
+              ".cloud-modal-atividade-overlay-pai .cloud-modal-body{" +
+                "margin:0!important;padding:0!important;color:#1f2937!important;" +
+                "font-size:16px!important;line-height:1.6!important;" +
+              "}" +
+              ".cloud-modal-atividade-overlay-pai .cloud-modal-footer{" +
+                "display:flex!important;align-items:center!important;justify-content:center!important;" +
+                "gap:12px!important;margin:30px 0 0 0!important;padding:0!important;" +
+              "}" +
+              ".cloud-modal-atividade-overlay-pai .btn-cloud{" +
+                "min-width:180px!important;display:inline-flex!important;align-items:center!important;" +
+                "justify-content:center!important;padding:14px 32px!important;border:0!important;" +
+                "border-radius:8px!important;background:#0027bd!important;color:#fff!important;" +
+                "font-size:16px!important;font-weight:700!important;text-transform:uppercase!important;" +
+                "letter-spacing:.5px!important;cursor:pointer!important;" +
+              "}" +
+              "@media(max-width:768px){" +
+                ".cloud-modal-atividade-overlay-pai{padding:12px!important;}" +
+                ".cloud-modal-atividade-overlay-pai .cloud-modal{" +
+                  "width:92%!important;padding:24px 18px!important;" +
+                "}" +
+                ".cloud-modal-atividade-overlay-pai .cloud-modal-header," +
+                ".cloud-modal-atividade-overlay-pai .cloud-modal-body{text-align:center!important;}" +
+                ".cloud-modal-atividade-overlay-pai .btn-cloud{" +
+                  "width:100%!important;min-width:0!important;" +
+                "}" +
+              "}";
+
+            (documentoPai.head || documentoPai.documentElement).appendChild(estiloPai);
+          }
+
+          var modalPai = documentoPai.getElementById(
+            "modalUploadFlowSucessoAtividadePai"
+          );
+
+          if (!modalPai) {
+            modalPai = documentoPai.createElement("div");
+            modalPai.id = "modalUploadFlowSucessoAtividadePai";
+            modalPai.className = "cloud-modal-atividade-overlay-pai";
+            modalPai.setAttribute("aria-hidden", "true");
+            modalPai.innerHTML =
+              '<div class="cloud-modal" role="dialog" aria-modal="true" ' +
+              'aria-labelledby="tituloModalUploadFlowSucessoAtividadePai">' +
+                '<div class="cloud-modal-header" ' +
+                'id="tituloModalUploadFlowSucessoAtividadePai">Anexos enviados</div>' +
+                '<div class="cloud-modal-body">' +
+                  'Todos os anexos foram armazenados com sucesso.' +
+                '</div>' +
+                '<div class="cloud-modal-footer">' +
+                  '<button type="button" class="btn-cloud" ' +
+                  'id="btnOkUploadFlowSucessoAtividadePai">OK</button>' +
+                '</div>' +
+              '</div>';
+
+            documentoPai.body.appendChild(modalPai);
+          }
+
+          var btnOkPai = modalPai.querySelector(
+            "#btnOkUploadFlowSucessoAtividadePai"
+          );
+
+          if (btnOkPai) {
+            btnOkPai.onclick = function () {
+              fecharModalSucessoNoDocumentoPai(modalPai, documentoPai);
+              avisarPaginaPaiUploadConcluido();
+            };
+          }
+
+          documentoPai.documentElement.classList.add(
+            "cloud-modal-atividade-aberto"
+          );
+          documentoPai.body.classList.add(
+            "cloud-modal-atividade-aberto"
+          );
+
+          modalPai.style.display = "flex";
+          modalPai.setAttribute("aria-hidden", "false");
+          return;
+        }
+      } catch (erroModalPai) {
+        console.warn(
+          "Não foi possível abrir o modal diretamente na página pai. Usando o modal da página filha.",
+          erroModalPai
+        );
+      }
+
+      abrirCloudModal(modalLocal);
+    }
+
+    function avisarPaginaPaiUploadConcluido() {
+      var payload = {
+        tipo: "ANEXOS_ATIVIDADE_SALVO",
+        type: "ANEXOS_ATIVIDADE_SALVO",
+        atividadeId: ATIVIDADE_ID
+      };
+
+      console.log("✅ Avisando a página pai sobre os anexos da atividade:", payload);
+
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(payload, "*");
+        } else {
+          window.location.reload();
+          return;
+        }
+
+        if (window.top && window.top !== window.parent) {
+          window.top.postMessage(payload, "*");
+        }
+      } catch (erro) {
+        console.error("Erro ao enviar mensagem para a página pai:", erro);
+      }
+    }
+
+    async function enviarArquivos() {
+      if (envioEmAndamento) return;
+
+      var arquivosPendentes = arquivosSelecionados.filter(function (item) {
+        return item.status !== "sucesso";
+      });
+
+      if (arquivosPendentes.length === 0) return;
+
+      var dadosFaltando = [];
+      if (!ATIVIDADE_ID) dadosFaltando.push("GUID da atividade");
+      if (!ID_ATIVIDADE) dadosFaltando.push("ID da atividade");
+      if (!SOLICITACAO_ID) dadosFaltando.push("GUID da solicitação");
+      if (!ID_SOLICITACOES) dadosFaltando.push("ID da solicitação");
+      if (!NOME_UNIDADE) dadosFaltando.push("nome da unidade");
+
+      if (dadosFaltando.length > 0) {
+        console.error("❌ Dados ausentes para o upload:", dadosFaltando);
+        mostrarMensagem(
+          "Não foi possível identificar: " + dadosFaltando.join(", ") + ". Atualize a página e tente novamente.",
+          "erro"
+        );
+        return;
+      }
+
+      envioEmAndamento = true;
+      mostrarMensagem("", "");
+
+      var btnEnviar = byId("btnEnviarArquivosFlow");
+      var btnCarregar = byId("btnCarregarArquivosFlow");
+
+      if (btnEnviar) {
+        btnEnviar.disabled = true;
+        btnEnviar.textContent = "ENVIANDO ANEXOS...";
+      }
+
+      if (btnCarregar) {
+        btnCarregar.disabled = true;
+      }
+
+      renderizarPreview();
+      var quantidadeErros = 0;
+
+      for (var indice = 0; indice < arquivosSelecionados.length; indice++) {
+        var itemArquivo = arquivosSelecionados[indice];
+
+        if (itemArquivo.status === "sucesso") continue;
+
+        itemArquivo.status = "enviando";
+        itemArquivo.erro = "";
+        renderizarPreview();
+
+        try {
+          var base64 = await arquivoParaBase64(itemArquivo.file);
+          var nomeArquivoComTimestamp = gerarNomeArquivoComTimestamp(itemArquivo.file.name);
+
+          var payload = {
+            documentId: ATIVIDADE_ID,
+            cloud_solicitacoesid: SOLICITACAO_ID,
+            DIRETORIO: DIRETORIO,
+            tabelaOrigem: TABELA_ORIGEM,
+            nomeArquivo: nomeArquivoComTimestamp,
+            tipoMime: itemArquivo.file.type || "application/octet-stream",
+            conteudoBase64: base64,
+            descricao: "Anexo da atividade enviado pelo Power Pages"
+          };
+
+          var respostaFlow = await chamarFlowUpload(payload);
+
+          itemArquivo.status = "sucesso";
+          itemArquivo.annotationId = respostaFlow.annotationId || "";
+        } catch (erroArquivo) {
+          quantidadeErros++;
+          itemArquivo.status = "erro";
+          itemArquivo.erro = erroArquivo.message || "Erro ao enviar arquivo.";
+        }
+
+        renderizarPreview();
+      }
+
+      envioEmAndamento = false;
+
+      if (btnEnviar) {
+        btnEnviar.textContent = quantidadeErros > 0 ? "REENVIAR PENDENTES" : "ENVIAR ANEXOS";
+      }
+
+      if (btnCarregar) {
+        btnCarregar.disabled = false;
+      }
+
+      renderizarPreview();
+
+      if (quantidadeErros > 0) {
+        mostrarMensagem(
+          quantidadeErros +
+            " arquivo(s) não foram enviados. Corrija o problema e clique em REENVIAR PENDENTES.",
+          "erro"
+        );
+        return;
+      }
+
+      var todosConcluidos = arquivosSelecionados.every(function (item) {
+        return item.status === "sucesso";
+      });
+
+      if (todosConcluidos) {
+        abrirModalSucessoUploadTelaInteira();
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      var input = byId("inputArquivosFlow");
+      var btnCarregar = byId("btnCarregarArquivosFlow");
+      var btnEnviar = byId("btnEnviarArquivosFlow");
+      var btnOk = byId("btnOkUploadFlowSucesso");
+
+      if (btnCarregar && input) {
+        btnCarregar.addEventListener("click", function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!envioEmAndamento) {
+            input.click();
+          }
+        });
+      }
+
+      if (input) {
+        input.addEventListener("change", function () {
+          adicionarArquivos(input.files);
+          input.value = "";
+        });
+      }
+
+      if (btnEnviar) {
+        btnEnviar.addEventListener("click", enviarArquivos);
+      }
+
+      if (btnOk) {
+        btnOk.addEventListener("click", function () {
+          fecharCloudModal(byId("modalUploadFlowSucesso"));
+          avisarPaginaPaiUploadConcluido();
+        });
+      }
+
+      renderizarPreview();
+    });
+  })();
+
+  (function () {
+    "use strict";
+
+    var ATIVIDADE_ID = "{{ atividadeId | escape }}";
+    var FLOW_EXCLUIR_ANEXO_URL =
+      "/_api/cloudflow/v1.0/trigger/274f69ba-5440-f111-bec7-7ced8da81546";
+
+    var selecionado = {
+      anexoId: "",
+      filename: ""
+    };
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function obterItem(annotationId) {
+      return document.querySelector(
+        '.item-anexo-existente[data-annotation-id="' + annotationId + '"]'
+      );
+    }
+
+    function abrirModalExcluir(annotationId, filename) {
+      selecionado.anexoId = annotationId || "";
+      selecionado.filename = filename || "";
+
+      var nome = byId("nomeArquivoExcluir");
+      if (nome) nome.textContent = selecionado.filename || "arquivo selecionado";
+
+      abrirCloudModal(byId("modalExcluirAnexo"));
+    }
+
+    function marcarComoExcluindo(annotationId) {
+      var item = obterItem(annotationId);
+      if (!item) return;
+
+      item.classList.add("excluindo");
+      item.innerHTML = '<div class="item-anexo-status-excluindo">EXCLUINDO ANEXO...</div>';
+    }
+
+    function executarExclusao() {
+      var btnConfirmar = byId("btnConfirmarExcluirAnexo");
+      var anexoId = selecionado.anexoId;
+
+      if (!anexoId) {
+        alert("Não foi possível identificar o anexo.");
+        return;
+      }
+
+      if (!window.shell || typeof shell.ajaxSafePost !== "function") {
+        alert("O contexto seguro do Power Pages não está disponível.");
+        return;
+      }
+
+      var quantidadeAntes = document.querySelectorAll(".item-anexo-existente").length;
+
+      if (btnConfirmar) {
+        btnConfirmar.disabled = true;
+        btnConfirmar.textContent = "EXCLUINDO...";
+      }
+
+      fecharCloudModal(byId("modalExcluirAnexo"));
+      marcarComoExcluindo(anexoId);
+
+      var payloadFlow = {
+        DocumentId: ATIVIDADE_ID,
+        AnexoId: anexoId,
+        QtdAnexado: String(quantidadeAntes)
+      };
+
+      shell.ajaxSafePost({
+        type: "POST",
+        url: FLOW_EXCLUIR_ANEXO_URL,
+        data: {
+          eventData: JSON.stringify(payloadFlow)
+        }
+      })
+      .done(function (response) {
+        console.log("✅ Anexo da atividade excluído:", response);
+
+        setTimeout(function () {
+          window.location.reload();
+        }, 3000);
+      })
+      .fail(function (xhr) {
+        console.error("❌ Erro ao excluir anexo:", xhr);
+        alert("Não foi possível excluir o anexo. A página será atualizada para restaurar a lista.");
+        window.location.reload();
+      })
+      .always(function () {
+        if (btnConfirmar) {
+          btnConfirmar.disabled = false;
+          btnConfirmar.textContent = "EXCLUIR";
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      document.querySelectorAll(".btn-excluir-anexo").forEach(function (btn) {
+        btn.addEventListener("click", function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          abrirModalExcluir(
+            this.getAttribute("data-annotation-id"),
+            this.getAttribute("data-filename")
+          );
+        });
+      });
+
+      var btnCancelar = byId("btnCancelarExcluirAnexo");
+      var btnConfirmar = byId("btnConfirmarExcluirAnexo");
+
+      if (btnCancelar) {
+        btnCancelar.addEventListener("click", function () {
+          fecharCloudModal(byId("modalExcluirAnexo"));
+        });
+      }
+
+      if (btnConfirmar) {
+        btnConfirmar.addEventListener("click", executarExclusao);
+      }
+    });
+  })();
+</script>

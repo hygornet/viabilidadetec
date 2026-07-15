@@ -1,0 +1,56 @@
+{% assign current_path = request.path | downcase %}
+{% assign title = "Aegea" %}
+
+{% if current_path contains "/corsan" %}
+  {% assign title = "CORSAN" %}
+{% elsif current_path contains "/aguasdopara" %}
+  {% assign title = "Águas do Pará" %}
+{% elsif current_path contains "/aguasdeguariroba" %}
+  {% assign title = "Águas de Guariroba" %}
+{% elsif current_path contains "/aguasdemanaus" %}
+  {% assign title = "Águas de Manaus" %}
+{% elsif current_path contains "/prolagos" %}
+  {% assign title = "Prolagos" %}
+{% endif %}
+
+<p
+  id="footerCopyrightText"
+  class="smallText"
+  style="color:#ffffff!important;"
+  data-default-title="{{ title }}"
+>
+  <b>® <span id="year">{{ now | date: 'yyyy' }}</span> <span id="footerTitleText">{{ title }}</span></b>. Todos os direitos reservados.
+</p>
+
+<script>
+(function () {
+  function applyFooterTitle() {
+    var titleWrapper = document.getElementById("footerCopyrightText");
+    var titleText = document.getElementById("footerTitleText");
+    if (!titleWrapper || !titleText) return;
+
+    var selectedUnit = "";
+    try {
+      selectedUnit = sessionStorage.getItem("aegea_unidade") || "";
+    } catch (e) {}
+
+    var titleMap = {
+      corsan: "CORSAN",
+      aguasdopara: "Águas do Pará",
+      guariroba: "Águas de Guariroba",
+      manaus: "Águas de Manaus",
+      prolagos: "Prolagos"
+    };
+
+    titleText.textContent = titleMap[selectedUnit]
+      || titleWrapper.getAttribute("data-default-title")
+      || "Aegea";
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", applyFooterTitle);
+  } else {
+    applyFooterTitle();
+  }
+})();
+</script>
